@@ -17,4 +17,8 @@
 
 #pragma once
 
-#include "../../../core/operators/functions/RegistrationAllFunctions.h"
+namespace gluten {
+
+void registerAllFunctions();
+
+} // namespace gluten

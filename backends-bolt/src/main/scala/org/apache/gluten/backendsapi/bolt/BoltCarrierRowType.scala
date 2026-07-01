@@ -16,11 +16,11 @@
  */
 package org.apache.gluten.backendsapi.bolt
 
-import org.apache.gluten.execution.{BoltColumnarToCarrierRowExec, SharedCarrierRowType}
-import org.apache.gluten.extension.columnar.transition.{Convention, Transition}
+import org.apache.gluten.execution.BoltColumnarToCarrierRowExec
+import org.apache.gluten.extension.columnar.transition.Convention
 
-object BoltCarrierRowType extends SharedCarrierRowType {
-  override protected def backendBatchType: Convention.BatchType = BoltBatchType
-
-  override protected def toCarrierRowTransition: Transition = BoltColumnarToCarrierRowExec.apply
+object BoltCarrierRowType extends Convention.RowType {
+  override protected[this] def registerTransitions(): Unit = {
+    fromBatch(BoltBatchType, BoltColumnarToCarrierRowExec.apply)
+  }
 }

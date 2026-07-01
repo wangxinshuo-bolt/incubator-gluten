@@ -16,10 +16,8 @@
  */
 package org.apache.gluten.extension
 
-import org.apache.gluten.backendsapi.BackendsApiManager
 import org.apache.gluten.datasource.ArrowCSVFileFormat
 import org.apache.gluten.datasource.v2.ArrowCSVTable
-import org.apache.gluten.sql.shims.SparkShimLoader
 
 import org.apache.spark.annotation.Experimental
 import org.apache.spark.sql.SparkSession
@@ -41,9 +39,6 @@ import scala.collection.convert.ImplicitConversions.`map AsScala`
 @Experimental
 case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = {
-    if (!BackendsApiManager.getSettings.enableNativeArrowReadFiles()) {
-      return plan
-    }
     plan.resolveOperators {
       case l: LogicalRelation =>
         l.relation match {
@@ -103,8 +98,7 @@ case class ArrowConvertorRule(session: SparkSession) extends Rule[LogicalPlan] {
     csvOptions.parseMode == PermissiveMode && !csvOptions.inferSchemaFlag &&
     csvOptions.nullValue == "" &&
     csvOptions.emptyValueInRead == "" && csvOptions.comment == '\u0000' &&
-    csvOptions.columnPruning &&
-    SparkShimLoader.getSparkShims.dateTimestampFormatInReadIsDefaultValue(csvOptions, timeZone)
+    csvOptions.columnPruning
   }
 
 }

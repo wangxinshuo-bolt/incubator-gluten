@@ -21,6 +21,7 @@ import org.apache.gluten.utils.Arm
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanHelper
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.DoubleType
@@ -28,6 +29,7 @@ import org.apache.spark.sql.types.DoubleType
 import java.io.File
 
 import scala.io.Source
+import scala.reflect.ClassTag
 
 case class Table(name: String, partitionColumns: Seq[String])
 
@@ -141,6 +143,21 @@ abstract class WholeStageTransformerSuite
           }
         }
     }
+
+  protected def checkGlutenOperatorMatch[T <: GlutenPlan](df: DataFrame)(implicit
+      tag: ClassTag[T]): Unit = {
+    checkGlutenPlan[T](df)
+  }
+
+  protected def checkSparkOperatorMatch[T <: SparkPlan](df: DataFrame)(implicit
+      tag: ClassTag[T]): Unit = {
+    checkSparkPlan[T](df)
+  }
+
+  protected def checkGlutenOperatorChainMatch[T <: UnaryExecNode, PT <: UnaryExecNode](
+      df: DataFrame)(implicit tag: ClassTag[T], childTag: ClassTag[PT]): Unit = {
+    checkSparkOperatorChainMatch[T, PT](df)
+  }
 
   protected def runTPCHQuery(
       queryNum: Int,

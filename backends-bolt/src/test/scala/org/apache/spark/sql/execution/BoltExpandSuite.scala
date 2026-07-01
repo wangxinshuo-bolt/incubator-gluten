@@ -21,7 +21,6 @@ import org.apache.gluten.events.GlutenPlanFallbackEvent
 import org.apache.gluten.execution.BoltWholeStageTransformerSuite
 
 import org.apache.spark.SparkConf
-import org.apache.spark.internal.config.UI.UI_ENABLED
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 
 import scala.collection.mutable.ArrayBuffer
@@ -34,7 +33,7 @@ class BoltExpandSuite extends BoltWholeStageTransformerSuite {
     super.sparkConf
       .set(GlutenConfig.GLUTEN_UI_ENABLED.key, "true")
       // The gluten ui event test suite expects the spark ui to be enable
-      .set(UI_ENABLED, true)
+      .set("spark.ui.enabled", "true")
   }
 
   test("Expand with duplicated group keys") {

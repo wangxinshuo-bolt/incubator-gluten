@@ -17,10 +17,32 @@
 
 #pragma once
 
-#include "../../../core/operators/writer/GlutenDataSource.h"
+#include <arrow/c/abi.h>
+#include <arrow/memory_pool.h>
+#include <arrow/record_batch.h>
+#include <arrow/type.h>
+#include <arrow/type_fwd.h>
+
+#include "memory/ColumnarBatch.h"
 
 namespace gluten {
 
-using BoltDataSource = GlutenDataSource;
+class BoltDataSource {
+ public:
+  BoltDataSource(const std::string& filePath, std::shared_ptr<arrow::Schema> schema)
+      : filePath_(filePath), schema_(schema) {}
+
+  virtual ~BoltDataSource() = default;
+
+  virtual void init(const std::unordered_map<std::string, std::string>& sparkConfs) {}
+  virtual void inspectSchema(struct ArrowSchema* out) = 0;
+  virtual void write(const std::shared_ptr<ColumnarBatch>& cb) {}
+  virtual void close() {}
+  virtual std::shared_ptr<arrow::Schema> getSchema() = 0;
+
+ private:
+  std::string filePath_;
+  std::shared_ptr<arrow::Schema> schema_;
+};
 
 } // namespace gluten

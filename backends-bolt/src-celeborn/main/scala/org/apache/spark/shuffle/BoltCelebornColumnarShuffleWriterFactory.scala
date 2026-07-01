@@ -18,13 +18,14 @@ package org.apache.spark.shuffle
 
 import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.celeborn.CelebornShuffleHandle
+import org.apache.spark.shuffle.gluten.celeborn.CelebornShuffleWriterFactory
 
 import org.apache.celeborn.client.ShuffleClient
 import org.apache.celeborn.common.CelebornConf
 
-class BoltCelebornColumnarShuffleWriterFactory extends SharedCelebornColumnarShuffleWriterFactory {
+class BoltCelebornColumnarShuffleWriterFactory extends CelebornShuffleWriterFactory {
 
-  override protected def createBackendShuffleWriter[K, V](
+  override def createShuffleWriterInstance[K, V](
       shuffleId: Int,
       handle: CelebornShuffleHandle[K, V, V],
       context: TaskContext,

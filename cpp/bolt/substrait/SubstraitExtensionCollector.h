@@ -18,16 +18,27 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "BoltSubstraitSignature.h"
-#include "substrait/SubstraitExtensionRegistry.h"
+#include "substrait/algebra.pb.h"
+#include "substrait/plan.pb.h"
 #include "bolt/core/Expressions.h"
 #include "bolt/core/PlanNode.h"
 #include "bolt/type/Type.h"
 
 namespace gluten {
+
+struct ExtensionFunctionId {
+  std::string uri;
+  std::string signature;
+
+  bool operator==(const ExtensionFunctionId& other) const {
+    return uri == other.uri && signature == other.signature;
+  }
+};
 
 /// Assigns unique IDs to function signatures using ExtensionFunctionId.
 class SubstraitExtensionCollector {
@@ -42,9 +53,43 @@ class SubstraitExtensionCollector {
   void addExtensionsToPlan(::substrait::Plan* plan) const;
 
  private:
-  std::shared_ptr<SubstraitExtensionRegistry> extensionRegistry_;
+  template <class T>
+  class BiDirectionHashMap {
+   public:
+    bool putIfAbsent(const int& key, const T& value);
+
+    const std::unordered_map<int, ExtensionFunctionId> forwardMap() const {
+      return forwardMap_;
+    }
+
+    const std::unordered_map<T, int>& reverseMap() const {
+      return reverseMap_;
+    }
+
+   private:
+    std::unordered_map<int, T> forwardMap_;
+    std::unordered_map<T, int> reverseMap_;
+  };
+
+  int getReferenceNumber(const ExtensionFunctionId& extensionFunctionId);
+
+  int functionReferenceNumber = -1;
+  std::shared_ptr<BiDirectionHashMap<ExtensionFunctionId>> extensionFunctions_;
 };
 
 using SubstraitExtensionCollectorPtr = std::shared_ptr<SubstraitExtensionCollector>;
 
 } // namespace gluten
+
+namespace std {
+
+template <>
+struct hash<gluten::ExtensionFunctionId> {
+  size_t operator()(const gluten::ExtensionFunctionId& k) const {
+    size_t val = hash<std::string>()(k.uri);
+    val = val * 31 + hash<std::string>()(k.signature);
+    return val;
+  }
+};
+
+} // namespace std

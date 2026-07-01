@@ -16,17 +16,33 @@
  */
 package org.apache.gluten.execution.datasource.v2
 
+import org.apache.gluten.sql.shims.SparkShimLoader
+
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.expressions.{AttributeReference, SortOrder}
+import org.apache.spark.sql.connector.read.Scan
 import org.apache.spark.sql.execution.BaseArrowScanExec
-import org.apache.spark.sql.execution.datasources.v2.{ArrowBatchScanExecShim, BatchScanExec}
+import org.apache.spark.sql.execution.datasources.v2.{BatchScanExec, BatchScanExecShim}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
 case class ArrowBatchScanExec(original: BatchScanExec)
-  extends ArrowBatchScanExecShim(original)
+  extends BatchScanExecShim(
+    original.output,
+    original.scan,
+    original.runtimeFilters,
+    keyGroupedPartitioning = SparkShimLoader.getSparkShims.getKeyGroupedPartitioning(original),
+    ordering = original.ordering,
+    table = SparkShimLoader.getSparkShims.getBatchScanExecTable(original),
+    commonPartitionValues = SparkShimLoader.getSparkShims.getCommonPartitionValues(original)
+  )
   with BaseArrowScanExec {
+  override val output: Seq[AttributeReference] = original.output
+  override val scan: Scan = original.scan
+  override val ordering: Option[Seq[SortOrder]] = original.ordering
+
   override def doCanonicalize(): ArrowBatchScanExec =
-    this.copy(original = original.doCanonicalize())
+    this.copy(original = original.doCanonicalize().asInstanceOf[BatchScanExec])
 
   override def nodeName: String = "Arrow" + original.nodeName
 

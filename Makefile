@@ -49,7 +49,7 @@ SHARED_LIBRARY ?= True
 # Gluten package version, read from package/pom.xml so jar paths stay in sync
 # when the project version bumps.
 GLUTEN_PACKAGE_VERSION := $(shell sed -n '0,/<version>\(.*\)<\/version>/s//\1/p' \
-    ${ROOT_DIR}/package/pom.xml | head -1)
+    ${ROOT_DIR}/package/pom.xml | head -1 | xargs)
 
 # Manually specify the number of bolt compilation threads by setting the BOLT_NUM_THREADS environment variable.
 # e.g. export BOLT_NUM_THREADS=50

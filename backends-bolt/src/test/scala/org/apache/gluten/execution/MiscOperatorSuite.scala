@@ -2202,9 +2202,9 @@ class MiscOperatorSuite extends BoltWholeStageTransformerSuite with AdaptiveSpar
       checkAnswer(join, df)
 
       val executedPlan = getExecutedPlan(join)
-      assert(collect(executedPlan) { case _: ReusedExchangeExec => true }.nonEmpty)
-      assert(collect(executedPlan) { case _: AQEShuffleReadExec => true }.nonEmpty)
-      assert(collect(executedPlan) {
+      assert(executedPlan.collect { case _: ReusedExchangeExec => true }.nonEmpty)
+      assert(executedPlan.collect { case _: AQEShuffleReadExec => true }.nonEmpty)
+      assert(executedPlan.collect {
         case resize: BoltResizeBatchesExec
             if (resize.child match {
               case AQEShuffleReadExec(ShuffleQueryStageExec(_, _: ReusedExchangeExec, _), _) =>

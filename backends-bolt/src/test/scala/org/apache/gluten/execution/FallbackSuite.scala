@@ -20,7 +20,6 @@ import org.apache.gluten.config.{BoltConfig, GlutenConfig}
 import org.apache.gluten.events.GlutenPlanFallbackEvent
 
 import org.apache.spark.SparkConf
-import org.apache.spark.internal.config.UI.UI_ENABLED
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.{ColumnarBroadcastExchangeExec, ColumnarShuffleExchangeExec, SortExec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.{AdaptiveSparkPlanHelper, AQEShuffleReadExec}
@@ -42,7 +41,7 @@ class FallbackSuite extends BoltWholeStageTransformerSuite with AdaptiveSparkPla
       .set("spark.unsafe.exceptionOnMemoryLeak", "true")
       // The fallback event test suite expects the Spark UI to be enabled.
       .set(GlutenConfig.GLUTEN_UI_ENABLED.key, "true")
-      .set(UI_ENABLED, true)
+      .set("spark.ui.enabled", "true")
   }
 
   override def beforeAll(): Unit = {
@@ -88,7 +87,13 @@ class FallbackSuite extends BoltWholeStageTransformerSuite with AdaptiveSparkPla
     collect(plan) { case c: ShuffleExchangeExec => c }.size
   }
 
-  private def waitUntilEmpty(): Unit = spark.sparkContext.listenerBus.waitUntilEmpty()
+  private def waitUntilEmpty(): Unit = {
+    val listenerBusMethod = classOf[org.apache.spark.SparkContext].getDeclaredMethod("listenerBus")
+    listenerBusMethod.setAccessible(true)
+    val listenerBus = listenerBusMethod.invoke(spark.sparkContext)
+    listenerBus.getClass.getMethod("waitUntilEmpty").invoke(listenerBus)
+    ()
+  }
 
   private def withFallbackEventListener(
       body: ArrayBuffer[GlutenPlanFallbackEvent] => Unit): Unit = {

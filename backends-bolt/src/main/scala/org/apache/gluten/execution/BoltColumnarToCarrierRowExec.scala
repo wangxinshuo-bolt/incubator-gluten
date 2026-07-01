@@ -17,20 +17,22 @@
 package org.apache.gluten.execution
 
 import org.apache.gluten.backendsapi.bolt.{BoltBatchType, BoltCarrierRowType}
-import org.apache.gluten.extension.columnar.transition.Convention
+import org.apache.gluten.extension.columnar.transition.{Convention, ConventionReq, Transitions}
 
 import org.apache.spark.sql.execution.SparkPlan
 
 case class BoltColumnarToCarrierRowExec(override val child: SparkPlan)
-  extends SharedColumnarToCarrierRowExec(child) {
-  override protected def backendBatchType: Convention.BatchType = BoltBatchType
-  override protected def backendRowType: Convention.RowType = BoltCarrierRowType
+  extends ColumnarToCarrierRowExecBase {
+  override protected def fromBatchType(): Convention.BatchType = BoltBatchType
+  override def rowType(): Convention.RowType = BoltCarrierRowType
   override protected def withNewChildInternal(newChild: SparkPlan): SparkPlan =
     copy(child = newChild)
 }
 
 object BoltColumnarToCarrierRowExec {
   def enforce(child: SparkPlan): SparkPlan = {
-    SharedColumnarToCarrierRowExec.enforce(child, BoltCarrierRowType)
+    Transitions.enforceReq(
+      child,
+      ConventionReq.ofRow(ConventionReq.RowType.Is(BoltCarrierRowType)))
   }
 }

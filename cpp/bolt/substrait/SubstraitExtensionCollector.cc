@@ -27,15 +27,44 @@ int SubstraitExtensionCollector::getReferenceNumber(
   const auto& substraitFunctionSignature = BoltSubstraitSignature::toSubstraitSignature(functionName, arguments);
   // TODO: Currently we treat all bolt registry based function signatures as
   // custom substrait extension, so no uri link and leave it as empty.
-  return extensionRegistry_->getReferenceNumber({"", substraitFunctionSignature});
+  return getReferenceNumber({"", substraitFunctionSignature});
+}
+
+template <typename T>
+bool SubstraitExtensionCollector::BiDirectionHashMap<T>::putIfAbsent(const int& key, const T& value) {
+  if (forwardMap_.find(key) == forwardMap_.end() && reverseMap_.find(value) == reverseMap_.end()) {
+    forwardMap_[key] = value;
+    reverseMap_[value] = key;
+    return true;
+  }
+  return false;
 }
 
 void SubstraitExtensionCollector::addExtensionsToPlan(::substrait::Plan* plan) const {
-  extensionRegistry_->addExtensionsToPlan(plan);
+  using SimpleExtensionURI = ::substrait::extensions::SimpleExtensionURI;
+  SimpleExtensionURI* extensionUri = plan->add_extension_uris();
+  extensionUri->set_extension_uri_anchor(1);
+
+  for (const auto& [referenceNum, functionId] : extensionFunctions_->forwardMap()) {
+    auto extensionFunction = plan->add_extensions()->mutable_extension_function();
+    extensionFunction->set_extension_uri_reference(extensionUri->extension_uri_anchor());
+    extensionFunction->set_function_anchor(referenceNum);
+    extensionFunction->set_name(functionId.signature);
+  }
 }
 
 SubstraitExtensionCollector::SubstraitExtensionCollector() {
-  extensionRegistry_ = std::make_shared<SubstraitExtensionRegistry>();
+  extensionFunctions_ = std::make_shared<BiDirectionHashMap<ExtensionFunctionId>>();
+}
+
+int SubstraitExtensionCollector::getReferenceNumber(const ExtensionFunctionId& extensionFunctionId) {
+  const auto& extensionFunctionAnchorIt = extensionFunctions_->reverseMap().find(extensionFunctionId);
+  if (extensionFunctionAnchorIt != extensionFunctions_->reverseMap().end()) {
+    return extensionFunctionAnchorIt->second;
+  }
+  ++functionReferenceNumber;
+  extensionFunctions_->putIfAbsent(functionReferenceNumber, extensionFunctionId);
+  return functionReferenceNumber;
 }
 
 } // namespace gluten

@@ -18,13 +18,15 @@
 #pragma once
 
 #include <jni.h>
-
-#include "../../core/jni/JniUdf.h"
+#include <string>
+#include <unordered_map>
 
 namespace gluten {
 
 void initBoltJniUDF(JNIEnv* env);
 
 void finalizeBoltJniUDF(JNIEnv* env);
+
+void jniRegisterFunctionSignatures(JNIEnv* env);
 
 } // namespace gluten

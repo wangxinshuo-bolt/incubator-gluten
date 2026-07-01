@@ -21,4 +21,10 @@
 
 using namespace bytedance::bolt;
 
-#include "../../core/substrait/VariantToVectorConverter.h"
+namespace gluten {
+
+/// Create Base Vector from bolt variants.
+/// Only scalar types are supported except VARBINARY.
+VectorPtr setVectorFromVariants(const TypePtr& type, const std::vector<variant>& values, memory::MemoryPool* pool);
+
+} // namespace gluten

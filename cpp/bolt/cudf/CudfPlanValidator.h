@@ -17,4 +17,13 @@
 
 #pragma once
 
-#include "../../core/cudf/CudfPlanValidator.h"
+#include "memory/BoltMemoryManager.h"
+#include "substrait/plan.pb.h"
+
+namespace gluten {
+class CudfPlanValidator {
+ public:
+  // Validate if the plan contains cudf unsupported operator except TableScan and ValueStream.
+  static bool validate(const ::substrait::Plan& substraitPlan);
+};
+} // namespace gluten

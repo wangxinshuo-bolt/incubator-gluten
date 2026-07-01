@@ -24,7 +24,6 @@ import org.apache.gluten.udtf.{ConditionalOutputUDTF, CustomerUDTF, NoInputUDTF,
 
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.config
-import org.apache.spark.internal.config.UI.UI_ENABLED
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.catalyst.expressions.CodegenObjectFactoryMode
 import org.apache.spark.sql.catalyst.optimizer.ConvertToLocalRelation
@@ -72,7 +71,7 @@ class GlutenHiveUDFSuite extends GlutenQueryComparisonTest with SQLTestUtils {
         HiveUtils.HIVE_METASTORE_BARRIER_PREFIXES.key,
         "org.apache.spark.sql.hive.execution.PairSerDe")
       // SPARK-8910
-      .set(UI_ENABLED, false)
+      .set("spark.ui.enabled", "false")
       .set(config.UNSAFE_EXCEPTION_ON_MEMORY_LEAK, true)
       // Hive changed the default of hive.metastore.disallow.incompatible.col.type.changes
       // from false to true. For details, see the JIRA HIVE-12320 and HIVE-17764.

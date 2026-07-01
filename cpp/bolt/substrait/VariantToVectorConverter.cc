@@ -19,10 +19,53 @@
 
 #include "bolt/vector/FlatVector.h"
 
-#define GLUTEN_DYNAMIC_SCALAR_TYPE_DISPATCH BOLT_DYNAMIC_SCALAR_TYPE_DISPATCH
-#define GLUTEN_UNSUPPORTED BOLT_UNSUPPORTED
+namespace gluten {
 
-#include "../../core/substrait/VariantToVectorConverter.cc"
+namespace {
+template <TypeKind KIND>
+VectorPtr setVectorFromVariantsByKind(const std::vector<variant>& values, const TypePtr& type, memory::MemoryPool* pool) {
+  using T = typename TypeTraits<KIND>::NativeType;
 
-#undef GLUTEN_DYNAMIC_SCALAR_TYPE_DISPATCH
-#undef GLUTEN_UNSUPPORTED
+  auto flatVector = BaseVector::create<FlatVector<T>>(type, values.size(), pool);
+
+  for (vector_size_t i = 0; i < values.size(); i++) {
+    if (values[i].isNull()) {
+      flatVector->setNull(i, true);
+    } else {
+      flatVector->set(i, values[i].value<T>());
+    }
+  }
+  return flatVector;
+}
+
+template <>
+VectorPtr setVectorFromVariantsByKind<TypeKind::VARBINARY>(
+    const std::vector<variant>& /* values */,
+    const TypePtr& /* type */,
+    memory::MemoryPool* /* pool */) {
+  BOLT_UNSUPPORTED("Return of VARBINARY data is not supported");
+}
+
+template <>
+VectorPtr setVectorFromVariantsByKind<TypeKind::VARCHAR>(
+    const std::vector<variant>& values,
+    const TypePtr& type,
+    memory::MemoryPool* pool) {
+  auto flatVector = BaseVector::create<FlatVector<StringView>>(type, values.size(), pool);
+
+  for (vector_size_t i = 0; i < values.size(); i++) {
+    if (values[i].isNull()) {
+      flatVector->setNull(i, true);
+    } else {
+      flatVector->set(i, StringView(values[i].value<TypeKind::VARCHAR>()));
+    }
+  }
+  return flatVector;
+}
+} // namespace
+
+VectorPtr setVectorFromVariants(const TypePtr& type, const std::vector<variant>& values, memory::MemoryPool* pool) {
+  return BOLT_DYNAMIC_SCALAR_TYPE_DISPATCH(setVectorFromVariantsByKind, type->kind(), values, type, pool);
+}
+
+} // namespace gluten

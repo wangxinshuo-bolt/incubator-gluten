@@ -18,12 +18,8 @@ package org.apache.gluten.datasource
 
 import org.apache.gluten.columnarbatch.ColumnarBatches
 import org.apache.gluten.config.BoltConfig
-import org.apache.gluten.exception.SchemaMismatchException
 import org.apache.gluten.execution.RowToBoltColumnarExec
-import org.apache.gluten.iterator.Iterators
 import org.apache.gluten.memory.arrow.alloc.ArrowBufferAllocators
-import org.apache.gluten.memory.arrow.pool.ArrowNativeMemoryPool
-import org.apache.gluten.utils.ArrowUtil
 import org.apache.gluten.vectorized.ArrowWritableColumnVector
 
 import org.apache.spark.TaskContext
@@ -35,26 +31,15 @@ import org.apache.spark.sql.catalyst.expressions.{AttributeReference, JoinedRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateUnsafeProjection
 import org.apache.spark.sql.execution.datasources.{FileFormat, HadoopFileLinesReader, OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.csv.CSVDataSource
+import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.SerializableConfiguration
 
-import org.apache.arrow.c.ArrowSchema
-import org.apache.arrow.dataset.file.FileSystemDatasetFactory
-import org.apache.arrow.dataset.scanner.ScanOptions
-import org.apache.arrow.dataset.scanner.csv.CsvFragmentScanOptions
-import org.apache.arrow.memory.BufferAllocator
-import org.apache.arrow.vector.VectorUnloader
-import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
-
-import java.net.URLDecoder
-import java.util.Optional
-
-import scala.collection.JavaConverters.{asJavaIterableConverter, asScalaBufferConverter}
 
 class ArrowCSVFileFormat(parsedOptions: CSVOptions)
   extends FileFormat
@@ -62,8 +47,6 @@ class ArrowCSVFileFormat(parsedOptions: CSVOptions)
   with Logging
   with Serializable {
 
-  private val fileFormat = org.apache.arrow.dataset.file.FileFormat.CSV
-  private lazy val pool = ArrowNativeMemoryPool.arrowPool("FileSystem Read")
   var fallback = false
 
   override def isSplitable(
@@ -77,13 +60,7 @@ class ArrowCSVFileFormat(parsedOptions: CSVOptions)
       sparkSession: SparkSession,
       options: Map[String, String],
       files: Seq[FileStatus]): Option[StructType] = {
-    val arrowConfig = ArrowCSVOptionConverter.convert(parsedOptions)
-    ArrowUtil.readSchema(
-      files,
-      fileFormat,
-      arrowConfig,
-      ArrowBufferAllocators.contextInstance(),
-      ArrowNativeMemoryPool.arrowPool("infer schema"))
+    new CSVFileFormat().inferSchema(sparkSession, options, files)
   }
 
   override def supportBatch(sparkSession: SparkSession, dataSchema: StructType): Boolean = true
@@ -105,87 +82,20 @@ class ArrowCSVFileFormat(parsedOptions: CSVOptions)
     val actualFilters =
       filters.filterNot(_.references.contains(parsedOptions.columnNameOfCorruptRecord))
     (file: PartitionedFile) => {
-      val actualDataSchema = StructType(
-        dataSchema.filterNot(_.name == parsedOptions.columnNameOfCorruptRecord))
-      val actualRequiredSchema = StructType(
-        requiredSchema.filterNot(_.name == parsedOptions.columnNameOfCorruptRecord))
-      ArrowCSVFileFormat.checkHeader(
-        file,
-        actualDataSchema,
-        actualRequiredSchema,
+      fallback = true
+      val iter = ArrowCSVFileFormat.fallbackReadVanilla(
+        dataSchema,
+        requiredSchema,
+        broadcastedHadoopConf.value.value,
         parsedOptions,
+        file,
         actualFilters,
-        broadcastedHadoopConf.value.value)
-
-      val arrowConfig = ArrowCSVOptionConverter.convert(parsedOptions)
-      val allocator = ArrowBufferAllocators.contextInstance()
-      // todo predicate validation / pushdown
-      val fileNames = ArrowUtil
-        .readArrowFileColumnNames(
-          URLDecoder.decode(file.filePath.toString, "UTF-8"),
-          fileFormat,
-          arrowConfig,
-          ArrowBufferAllocators.contextInstance(),
-          pool)
-      val tokenIndexArr =
-        actualRequiredSchema
-          .map(f => java.lang.Integer.valueOf(actualDataSchema.indexOf(f)))
-          .toArray
-      val fileIndex = tokenIndexArr.filter(_ < fileNames.length)
-      val requestSchema = new StructType(
-        fileIndex
-          .map(index => StructField(fileNames(index), actualDataSchema(index).dataType)))
-      val missingIndex = tokenIndexArr.filter(_ >= fileNames.length)
-      val missingSchema = new StructType(missingIndex.map(actualDataSchema(_)))
-      // TODO: support array/map/struct types in out-of-order schema reading.
-      val cSchema: ArrowSchema = ArrowSchema.allocateNew(allocator)
-      val cSchema2: ArrowSchema = ArrowSchema.allocateNew(allocator)
-      try {
-        ArrowCSVOptionConverter.schema(requestSchema, cSchema, allocator, arrowConfig)
-        val factory =
-          ArrowUtil.makeArrowDiscovery(
-            URLDecoder.decode(file.filePath.toString, "UTF-8"),
-            fileFormat,
-            Optional.of(arrowConfig),
-            ArrowBufferAllocators.contextInstance(),
-            pool)
-        val fields = factory.inspect().getFields
-        val actualReadFields = new Schema(
-          fileIndex.map(index => fields.get(index)).toIterable.asJava)
-        ArrowCSVOptionConverter.schema(requestSchema, cSchema2, allocator, arrowConfig)
-        ArrowCSVFileFormat
-          .readArrow(
-            ArrowBufferAllocators.contextInstance(),
-            file,
-            actualReadFields,
-            missingSchema,
-            partitionSchema,
-            factory,
-            batchSize,
-            arrowConfig)
-          .asInstanceOf[Iterator[InternalRow]]
-      } catch {
-        case e: SchemaMismatchException =>
-          logWarning(e.getMessage)
-          fallback = true
-          val iter = ArrowCSVFileFormat.fallbackReadVanilla(
-            dataSchema,
-            requiredSchema,
-            broadcastedHadoopConf.value.value,
-            parsedOptions,
-            file,
-            actualFilters,
-            columnPruning)
-          val (schema, rows) =
-            ArrowCSVFileFormat.withPartitionValue(requiredSchema, partitionSchema, iter, file)
-          ArrowCSVFileFormat
-            .rowToColumn(schema, batchSize, rows)
-            .asInstanceOf[Iterator[InternalRow]]
-        case d: Exception => throw d
-      } finally {
-        cSchema.close()
-        cSchema2.close()
-      }
+        columnPruning)
+      val (schema, rows) =
+        ArrowCSVFileFormat.withPartitionValue(requiredSchema, partitionSchema, iter, file)
+      ArrowCSVFileFormat
+        .rowToColumn(schema, batchSize, rows)
+        .asInstanceOf[Iterator[InternalRow]]
     }
   }
 
@@ -215,64 +125,6 @@ class ArrowCSVFileFormat(parsedOptions: CSVOptions)
 }
 
 object ArrowCSVFileFormat {
-
-  def readArrow(
-      allocator: BufferAllocator,
-      file: PartitionedFile,
-      actualReadFields: Schema,
-      missingSchema: StructType,
-      partitionSchema: StructType,
-      factory: FileSystemDatasetFactory,
-      batchSize: Int,
-      arrowConfig: CsvFragmentScanOptions): Iterator[ColumnarBatch] = {
-    val actualReadFieldNames = actualReadFields.getFields.asScala.map(_.getName).toArray
-    val dataset = factory.finish(actualReadFields)
-    val scanOptions = new ScanOptions.Builder(batchSize)
-      .columns(Optional.of(actualReadFieldNames))
-      .fragmentScanOptions(arrowConfig)
-      .build()
-    val scanner = dataset.newScan(scanOptions)
-
-    val partitionVectors =
-      ArrowUtil.loadPartitionColumns(batchSize, partitionSchema, file.partitionValues)
-
-    val nullVectors = if (missingSchema.nonEmpty) {
-      ArrowUtil.loadMissingColumns(batchSize, missingSchema)
-    } else {
-      Array.empty[ArrowWritableColumnVector]
-    }
-    val reader = scanner.scanBatches()
-    Iterators
-      .wrap(new Iterator[ColumnarBatch] {
-
-        override def hasNext: Boolean = {
-          reader.loadNextBatch()
-        }
-
-        override def next: ColumnarBatch = {
-          val root = reader.getVectorSchemaRoot
-          val unloader = new VectorUnloader(root)
-
-          val batch = ArrowUtil.loadBatch(
-            allocator,
-            unloader.getRecordBatch,
-            actualReadFields,
-            partitionVectors,
-            nullVectors)
-          batch
-        }
-      })
-      .recycleIterator {
-        scanner.close()
-        dataset.close()
-        factory.close()
-        reader.close()
-        partitionVectors.foreach(_.close())
-        nullVectors.foreach(_.close())
-      }
-      .recyclePayload(_.close())
-      .create()
-  }
 
   def checkHeader(
       file: PartitionedFile,
