@@ -16,7 +16,7 @@
  */
 package org.apache.gluten.extension
 
-import org.apache.gluten.config.GlutenConfig
+import org.apache.gluten.config.BoltConfig
 import org.apache.gluten.execution.{FilterExecTransformer, GenerateExecTransformer, ProjectExecTransformer}
 
 import org.apache.spark.sql.SparkSession
@@ -26,7 +26,7 @@ import org.apache.spark.sql.execution.SparkPlan
 
 case class PushdownProjectExecBeforeGeneratorRule(spark: SparkSession) extends Rule[SparkPlan] {
   override def apply(plan: SparkPlan): SparkPlan = {
-    if (!GlutenConfig.get.enableColumnarProjectPushdown) {
+    if (!BoltConfig.get.enableColumnarProjectPushdown) {
       return plan
     }
     plan.transformUp {

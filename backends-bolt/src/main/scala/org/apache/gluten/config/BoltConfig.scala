@@ -19,6 +19,7 @@ package org.apache.gluten.config
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.internal.SQLConf
 
+import java.util
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -77,6 +78,15 @@ class BoltConfig(conf: SQLConf) extends GlutenConfig(conf) {
 
   def enableRewriteUnboundedWindow: Boolean = getConf(ENABLE_REWRITE_UNBOUNDED_WINDOW)
 
+  def enableColumnarProjectPushdown: Boolean = getConf(ENABLE_COLUMNAR_PROJECT_PUSHDOWN)
+
+  def enableColumnarProjectRemove: Boolean = getConf(ENABLE_COLUMNAR_PROJECT_REMOVE)
+
+  def parquetWriterBufferGrowRatio: Double = getConf(GLUTEN_PARQUET_WRITER_BUFFER_GROW_RATIO)
+
+  def parquetWriterBufferReserveRatio: Double =
+    getConf(GLUTEN_PARQUET_WRITER_BUFFER_RESERVE_RATIO)
+
   def enableEnhancedFeatures(): Boolean = ConfigJniWrapper.isEnhancedFeaturesEnabled &&
     getConf(ENABLE_ENHANCED_FEATURES)
 
@@ -128,8 +138,121 @@ class BoltConfig(conf: SQLConf) extends GlutenConfig(conf) {
 }
 
 object BoltConfig extends ConfigRegistry {
+  val GLUTEN_PARALLEL_ENABLED_KEY = "spark.gluten.parallel.enabled"
+  val GLUTEN_PARALLEL_ENABLED_KEY_DEFAULT = false
+  val USE_BOLT_MEMORY_MANAGER_KEY = "spark.gluten.useBoltMemoryManager"
+  val BOLT_MEMORY_MANAGER_MAX_WAIT_TIME_WHEN_FREE_KEY =
+    "spark.gluten.boltMemoryManager.maxWaitTimeWhenFree"
+  val BOLT_EXECUTION_POOL_MIN_MEMORY_MAX_WAIT_TIME_KEY =
+    "spark.gluten.boltExecutionPool.minMemoryMaxWaitTime"
+  val GLUTEN_PREFETCH_MEMORY_PERCENT_CONF = "spark.gluten.bolt.prefetch.memory.percent"
+  val GLUTEN_PRELOAD_ENABLED_CONF = "spark.gluten.sql.columnar.backend.bolt.preload.enabled"
+  val PARQUET_ROW_NUM_IN_EACH_BLOCK = "parquet.block.rowNumInEachBlock"
+  val GLUTEN_MAX_SHUFFLE_BATCH_BYTE_SIZE_KEY = "spark.gluten.sql.columnar.maxShuffleBatchByteSize"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_DECRYPT_ENABLED =
+    "spark.hadoop.parquet.encryption.decrypt.enabled"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INS_URL =
+    "spark.hadoop.parquet.encryption.kms.instance.url"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INS_ID =
+    "spark.hadoop.parquet.encryption.kms.instance.id"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_ACCESS_TOKEN =
+    "spark.hadoop.parquet.encryption.key.access.token"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_CACHE_LIFETIME_SECONDS =
+    "spark.hadoop.parquet.encryption.cache.lifetime.seconds"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_MAX_RETRY_TIMES =
+    "spark.hadoop.parquet.encryption.kms.client.max.retry.times"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INSTANCE_VERSION =
+    "spark.hadoop.parquet.encryption.kms.instance.version"
+  val SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_CLIENT_CLASS =
+    "spark.hadoop.parquet.encryption.kms.client.class"
+  val NATIVE_ARROW_READER_ENABLED =
+    buildConf("spark.gluten.sql.native.arrow.reader.enabled")
+      .doc("This is config to specify whether to enable the native columnar csv reader")
+      .booleanConf
+      .createWithDefault(false)
+  val ENABLE_COLUMNAR_PROJECT_PUSHDOWN =
+    buildConf("spark.gluten.sql.columnar.project.pushdown")
+      .internal()
+      .doc("Splits project to function and field access and pushdown function before generate")
+      .booleanConf
+      .createWithDefault(false)
+  val ENABLE_COLUMNAR_PROJECT_REMOVE =
+    buildConf("spark.gluten.sql.columnar.project.remove")
+      .internal()
+      .doc("remove unnecessary project before generate")
+      .booleanConf
+      .createWithDefault(false)
+  val GLUTEN_PARQUET_WRITER_BUFFER_GROW_RATIO =
+    buildConf("spark.gluten.sql.parquet.writer.bufferGrowRatio")
+      .internal()
+      .doubleConf
+      .createWithDefault(1)
+  val GLUTEN_PARQUET_WRITER_BUFFER_RESERVE_RATIO =
+    buildConf("spark.gluten.sql.parquet.writer.bufferReserveRatio")
+      .internal()
+      .doubleConf
+      .createWithDefault(0)
+
   override def get: BoltConfig = {
     new BoltConfig(SQLConf.get)
+  }
+
+  lazy val EXTRA_NATIVE_SESSION_CONF_KEYS: Set[String] = Set(
+    GLUTEN_PARALLEL_ENABLED_KEY,
+    USE_BOLT_MEMORY_MANAGER_KEY,
+    BOLT_MEMORY_MANAGER_MAX_WAIT_TIME_WHEN_FREE_KEY,
+    BOLT_EXECUTION_POOL_MIN_MEMORY_MAX_WAIT_TIME_KEY,
+    BOLT_MEMORY_MANAGER_ENABLE_DYNAMIC_MEMORY_QUOTA_MANAGER.key,
+    BOLT_MEMORY_MANAGER_DYNAMIC_MEMORY_QUOTA_MANAGER_RATIOS.key,
+    GLUTEN_MAX_SHUFFLE_BATCH_BYTE_SIZE_KEY,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_DECRYPT_ENABLED,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INS_URL,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INS_ID,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_ACCESS_TOKEN,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_CACHE_LIFETIME_SECONDS,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_MAX_RETRY_TIMES,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INSTANCE_VERSION,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_CLIENT_CLASS
+  )
+
+  lazy val EXTRA_NATIVE_BACKEND_CONF_KEYS: Set[String] = Set(
+    "spark.executor.cores",
+    "spark.vcore.boost.ratio",
+    GLUTEN_PARALLEL_ENABLED_KEY,
+    GLUTEN_MAX_SHUFFLE_BATCH_BYTE_SIZE_KEY,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_DECRYPT_ENABLED,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INS_URL,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INS_ID,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_ACCESS_TOKEN,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_CACHE_LIFETIME_SECONDS,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_MAX_RETRY_TIMES,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_INSTANCE_VERSION,
+    SPARK_HADOOP_PARQUET_ENCRYPTION_KMS_CLIENT_CLASS,
+    GLUTEN_PARQUET_WRITER_BUFFER_GROW_RATIO.key,
+    GLUTEN_PARQUET_WRITER_BUFFER_RESERVE_RATIO.key
+  )
+
+  def postProcessNativeBackendConf(nativeConfMap: util.Map[String, String]): Unit = {
+    val numTaskSlots = nativeConfMap.getOrDefault(
+      GlutenCoreConfig.NUM_TASK_SLOTS_PER_EXECUTOR.key,
+      GlutenCoreConfig.NUM_TASK_SLOTS_PER_EXECUTOR.defaultValueString)
+    val defaults = Seq(
+      "spark.gluten.bolt.fs.s3a.connect.timeout" -> "200s",
+      "spark.gluten.bolt.fs.s3a.retry.mode" -> "legacy",
+      "spark.gluten.sql.columnar.backend.bolt.IOThreads" -> numTaskSlots,
+      "spark.gluten.sql.columnar.backend.bolt.fileHandleCacheEnabled" -> "false",
+      "spark.gluten.bolt.awsSdkLogLevel" -> "FATAL",
+      "spark.gluten.bolt.s3UseProxyFromEnv" -> "false",
+      "spark.gluten.bolt.s3PayloadSigningPolicy" -> "Never",
+      GLUTEN_PARALLEL_ENABLED_KEY -> GLUTEN_PARALLEL_ENABLED_KEY_DEFAULT.toString
+    )
+
+    defaults.foreach {
+      case (key, defaultValue) =>
+        if (!nativeConfMap.containsKey(key)) {
+          nativeConfMap.put(key, defaultValue)
+        }
+    }
   }
 
   // bolt caching options.
@@ -735,14 +858,14 @@ object BoltConfig extends ConfigRegistry {
       .createWithDefault(100)
 
   val USE_BOLT_MEMORY_MANAGER =
-    buildConf(GlutenConfig.USE_BOLT_MEMORY_MANAGER_KEY)
+    buildConf(USE_BOLT_MEMORY_MANAGER_KEY)
       .internal()
       .doc("Use bolt memory manager to manage offheap memory.")
       .booleanConf
       .createWithDefault(true)
 
   val BOLT_MEMORY_MANAGER_MAX_WAIT_TIME_WHEN_FREE =
-    buildConf(GlutenConfig.BOLT_MEMORY_MANAGER_MAX_WAIT_TIME_WHEN_FREE_KEY).longConf
+    buildConf(BOLT_MEMORY_MANAGER_MAX_WAIT_TIME_WHEN_FREE_KEY).longConf
       .createWithDefault(180000)
 
   val BOLT_MEMORY_MANAGER_ENABLE_DYNAMIC_MEMORY_QUOTA_MANAGER =
@@ -799,11 +922,11 @@ object BoltConfig extends ConfigRegistry {
       .createWithDefault("0.5|0.9|1.0|1.0|6.0|1.0|0.05|0.0|0.05|")
 
   val BOLT_EXECUTION_POOL_MIN_MEMORY_MAX_WAIT_TIME =
-    buildConf(GlutenConfig.BOLT_EXECUTION_POOL_MIN_MEMORY_MAX_WAIT_TIME_KEY).longConf
+    buildConf(BOLT_EXECUTION_POOL_MIN_MEMORY_MAX_WAIT_TIME_KEY).longConf
       .createWithDefault(300000)
 
   val GLUTEN_PREFETCH_MEMORY_PERCENT =
-    buildConf(GlutenConfig.GLUTEN_PREFETCH_MEMORY_PERCENT_CONF)
+    buildConf(GLUTEN_PREFETCH_MEMORY_PERCENT_CONF)
       .internal()
       .doc("The memory percent to prefetch.")
       .intConf
@@ -811,12 +934,19 @@ object BoltConfig extends ConfigRegistry {
       .createWithDefault(50)
 
   val GLUTEN_PRELOAD_ENABLED =
-    buildConf(GlutenConfig.GLUTEN_PRELOAD_ENABLED_CONF)
+    buildConf(GLUTEN_PRELOAD_ENABLED_CONF)
       .internal()
       .doc("Enable preload or not, 0 for disable, 1 for adaptive enable, -1 for force enable")
       .intConf
       .checkValue(value => value == 0 || value == 1 || value == -1, "must be 0, 1 or -1")
       .createWithDefault(1)
+
+  val GLUTEN_PARALLEL_ENABLED =
+    buildConf(GLUTEN_PARALLEL_ENABLED_KEY)
+      .internal()
+      .doc("Enable parallel executio of Bolt tasks in Gluten")
+      .booleanConf
+      .createWithDefault(GLUTEN_PARALLEL_ENABLED_KEY_DEFAULT)
 
   val COLUMNAR_SHUFFLE_COMPRESSION_MODE =
     buildConf("spark.gluten.sql.columnar.shuffle.compressionMode")
@@ -887,7 +1017,7 @@ object BoltConfig extends ConfigRegistry {
       .createWithDefault(0)
 
   val COLUMNAR_MAX_SHUFFLE_BATCH_BYTE_SIZE =
-    buildConf(GlutenConfig.GLUTEN_MAX_SHUFFLE_BATCH_BYTE_SIZE_KEY)
+    buildConf(GLUTEN_MAX_SHUFFLE_BATCH_BYTE_SIZE_KEY)
       .internal()
       .intConf
       .createWithDefault(41943040)

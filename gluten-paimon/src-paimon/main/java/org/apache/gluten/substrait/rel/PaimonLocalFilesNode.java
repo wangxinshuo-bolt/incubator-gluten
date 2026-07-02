@@ -93,7 +93,6 @@ public class PaimonLocalFilesNode extends LocalFilesNode {
       case ParquetReadFormat:
         ParquetReadOptions parquetReadOptions =
             ParquetReadOptions.newBuilder()
-                .setEnableRowGroupMaxminIndex(GlutenConfig.get().enableParquetRowGroupMaxMinIndex())
                 .build();
         paimonBuilder.setParquet(parquetReadOptions);
         break;

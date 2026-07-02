@@ -16,7 +16,7 @@
  */
 package org.apache.spark.sql.execution.datasources.bolt
 
-import org.apache.gluten.config.GlutenConfig
+import org.apache.gluten.config.{BoltConfig, GlutenConfig}
 
 import org.apache.spark.sql.internal.SQLConf
 
@@ -55,17 +55,17 @@ class BoltParquetWriterInjects extends BoltFormatWriterInjects {
       GlutenConfig.PARQUET_WRITER_VERSION
     ).foreach(key => options.get(key).foreach(sparkOptions.put(key, _)))
 
-    options.get(GlutenConfig.PARQUET_ROW_NUM_IN_EACH_BLOCK) match {
+    options.get(BoltConfig.PARQUET_ROW_NUM_IN_EACH_BLOCK) match {
       case Some(rowNumsInEachBlock) =>
-        sparkOptions.put(GlutenConfig.PARQUET_ROW_NUM_IN_EACH_BLOCK, rowNumsInEachBlock)
+        sparkOptions.put(BoltConfig.PARQUET_ROW_NUM_IN_EACH_BLOCK, rowNumsInEachBlock)
       case _ =>
     }
     sparkOptions.put(
-      GlutenConfig.GLUTEN_PARQUET_WRITER_BUFFER_GROW_RATIO.key,
-      GlutenConfig.get.parquetWriterBufferGrowRatio.toString)
+      BoltConfig.GLUTEN_PARQUET_WRITER_BUFFER_GROW_RATIO.key,
+      BoltConfig.get.parquetWriterBufferGrowRatio.toString)
     sparkOptions.put(
-      GlutenConfig.GLUTEN_PARQUET_WRITER_BUFFER_RESERVE_RATIO.key,
-      GlutenConfig.get.parquetWriterBufferReserveRatio.toString)
+      BoltConfig.GLUTEN_PARQUET_WRITER_BUFFER_RESERVE_RATIO.key,
+      BoltConfig.get.parquetWriterBufferReserveRatio.toString)
     sparkOptions.asJava
   }
 

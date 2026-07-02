@@ -99,6 +99,10 @@ object BoltBackendSettings extends BackendSettingsApi {
 
   override def primaryBatchType: Convention.BatchType = BoltBatchType
 
+  override def extraNativeSessionConfKeys(): Set[String] = BoltConfig.EXTRA_NATIVE_SESSION_CONF_KEYS
+
+  override def extraNativeBackendConfKeys(): Set[String] = BoltConfig.EXTRA_NATIVE_BACKEND_CONF_KEYS
+
   override def validateScanExec(
       format: ReadFileFormat,
       fields: Array[StructField],

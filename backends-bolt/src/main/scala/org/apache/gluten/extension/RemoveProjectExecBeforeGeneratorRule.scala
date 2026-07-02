@@ -16,7 +16,7 @@
  */
 package org.apache.gluten.extension
 
-import org.apache.gluten.config.GlutenConfig
+import org.apache.gluten.config.BoltConfig
 import org.apache.gluten.execution.{GenerateExecTransformer, ProjectExecTransformer}
 
 import org.apache.spark.sql.catalyst.expressions.{Alias, Attribute}
@@ -24,7 +24,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.SparkPlan
 object RemoveProjectExecBeforeGeneratorRule extends Rule[SparkPlan] {
   override def apply(plan: SparkPlan): SparkPlan = {
-    if (!GlutenConfig.get.enableColumnarProjectRemove) {
+    if (!BoltConfig.get.enableColumnarProjectRemove) {
       return plan
     }
     plan.transformUp {

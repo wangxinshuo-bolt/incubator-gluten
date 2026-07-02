@@ -17,6 +17,7 @@
 package org.apache.gluten.backendsapi.bolt
 
 import org.apache.gluten.backendsapi.{BackendsApiManager, TransformerApi}
+import org.apache.gluten.config.BoltConfig
 import org.apache.gluten.exception.GlutenException
 import org.apache.gluten.execution.WriteFilesExecTransformer
 import org.apache.gluten.execution.datasource.GlutenFormatFactory
@@ -70,7 +71,7 @@ class BoltTransformerApi extends TransformerApi with Logging {
   override def postProcessNativeConfig(
       nativeConfMap: JMap[String, String],
       backendPrefix: String): Unit = {
-    // TODO: IMPLEMENT SPECIAL PROCESS FOR BOLT BACKEND
+    BoltConfig.postProcessNativeBackendConf(nativeConfMap)
   }
 
   override def createCheckOverflowExprNode(
