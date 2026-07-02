@@ -37,7 +37,7 @@ class MathFunctionsValidateSuiteAnsiOn extends FunctionsValidateSuite {
     runQueryAndCompare(
       "select try_add(cast(l_orderkey as int), 1), try_add(cast(l_orderkey as int), 2147483647)" +
         " from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -53,7 +53,7 @@ class MathFunctionsValidateSuiteAnsiOn extends FunctionsValidateSuite {
     runQueryAndCompare(
       "select try_multiply(2147483647, cast(l_orderkey as int)), " +
         "try_multiply(-2147483648, cast(l_orderkey as int)) from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -61,7 +61,7 @@ class MathFunctionsValidateSuiteAnsiOn extends FunctionsValidateSuite {
     runQueryAndCompare(
       "select try_subtract(2147483647, cast(l_orderkey as int)), " +
         "try_subtract(-2147483648, cast(l_orderkey as int)) from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 }
@@ -73,76 +73,76 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
 
   test("abs") {
     val df = runQueryAndCompare("SELECT abs(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
 
   test("acos") {
     runQueryAndCompare("SELECT acos(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("asin") {
     runQueryAndCompare("SELECT asin(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("atan") {
     runQueryAndCompare("SELECT atan(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   ignore("atan2") {
     runQueryAndCompare("SELECT atan2(double_field1, 0) from datatab limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("bin") {
     val df = runQueryAndCompare("SELECT bin(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
 
   test("ceil") {
     val df = runQueryAndCompare("SELECT ceil(cast(l_orderkey as long)) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
 
   test("ceiling") {
     runQueryAndCompare("SELECT ceiling(cast(l_orderkey as long)) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("cos") {
     runQueryAndCompare("SELECT cos(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("cosh") {
     runQueryAndCompare("SELECT cosh(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("degrees") {
     runQueryAndCompare("SELECT degrees(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("exp") {
     val df = runQueryAndCompare("SELECT exp(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
@@ -179,7 +179,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
 
       runSql(query) {
         df =>
-          checkGlutenOperatorMatch[ProjectExecTransformer](df)
+          checkGlutenPlan[ProjectExecTransformer](df)
           val result = df.collect()
           assert(result.length == expectedResults.length)
           assert(result === expectedResults)
@@ -189,7 +189,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
 
   test("floor") {
     val df = runQueryAndCompare("SELECT floor(cast(l_orderkey as long)) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
@@ -198,7 +198,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       "SELECT greatest(l_orderkey, l_orderkey)" +
         "from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     withTempPath {
       path =>
@@ -213,14 +213,14 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
         spark.read.parquet(path.getCanonicalPath).createOrReplaceTempView("view")
 
         runQueryAndCompare("SELECT greatest(a, b) from view") {
-          checkGlutenOperatorMatch[ProjectExecTransformer]
+          checkGlutenPlan[ProjectExecTransformer]
         }
     }
   }
 
   test("hex") {
     runQueryAndCompare("SELECT hex(l_partkey), hex(l_shipmode) FROM lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -228,7 +228,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       "SELECT least(l_orderkey, l_orderkey)" +
         "from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     withTempPath {
       path =>
@@ -243,39 +243,39 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
         spark.read.parquet(path.getCanonicalPath).createOrReplaceTempView("view")
 
         runQueryAndCompare("SELECT least(a, b) from view") {
-          checkGlutenOperatorMatch[ProjectExecTransformer]
+          checkGlutenPlan[ProjectExecTransformer]
         }
     }
   }
 
   test("log") {
     runQueryAndCompare("SELECT log(10, l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("log10") {
     runQueryAndCompare("SELECT log10(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("negative") {
     runQueryAndCompare("select negative(l_orderkey) from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("pmod") {
     val df = runQueryAndCompare("SELECT pmod(cast(l_orderkey as int), 3) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
 
   test("power") {
     val df = runQueryAndCompare("SELECT power(l_orderkey, 2) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
@@ -284,7 +284,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       """SELECT rand() from lineitem limit 100""".stripMargin,
       compareResult = false) {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -295,7 +295,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
 
         spark.read.parquet(path.getCanonicalPath).createOrReplaceTempView("double")
         runQueryAndCompare("select rint(d) from double") {
-          checkGlutenOperatorMatch[ProjectExecTransformer]
+          checkGlutenPlan[ProjectExecTransformer]
         }
     }
   }
@@ -304,13 +304,13 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       "SELECT round(cast(l_orderkey as int), 2)" +
         "from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
 
     runQueryAndCompare("""
                          |select round(l_quantity, 2) from lineitem;
                          |""".stripMargin) {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
 
     // Scale > 0 should return same value as input on integral values
@@ -321,7 +321,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
 
   test("shiftleft") {
     runQueryAndCompare("SELECT shiftleft(int_field1, 1) from datatab limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -329,7 +329,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       "select try_add(cast(l_orderkey as int), 1), try_add(cast(l_orderkey as int), 2147483647)" +
         " from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -345,7 +345,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       "select try_multiply(2147483647, cast(l_orderkey as int)), " +
         "try_multiply(-2147483648, cast(l_orderkey as int)) from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -353,13 +353,13 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
     runQueryAndCompare(
       "select try_subtract(2147483647, cast(l_orderkey as int)), " +
         "try_subtract(-2147483648, cast(l_orderkey as int)) from lineitem") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
   test("unhex") {
     runQueryAndCompare("SELECT unhex(hex(l_shipmode)) FROM lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
   }
 
@@ -376,14 +376,14 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
         spark.read.parquet(path.getCanonicalPath).createOrReplaceTempView("tbl")
 
         runQueryAndCompare("SELECT width_bucket(val1, val2, val3, val4) from tbl") {
-          checkGlutenOperatorMatch[BatchScanExecTransformer]
+          checkGlutenPlan[BatchScanExecTransformer]
         }
     }
   }
 
   test("sqrt") {
     val df = runQueryAndCompare("SELECT sqrt(l_orderkey) from lineitem limit 1") {
-      checkGlutenOperatorMatch[ProjectExecTransformer]
+      checkGlutenPlan[ProjectExecTransformer]
     }
     checkLengthAndPlan(df, 1)
   }
@@ -400,7 +400,7 @@ class MathFunctionsValidateSuite extends FunctionsValidateSuite {
         enabled =>
           withSQLConf("spark.sql.decimalOperations.allowPrecisionLoss" -> enabled) {
             runQueryAndCompare("SELECT a - b, a + b, a * b, a / b FROM t") {
-              checkGlutenOperatorMatch[ProjectExecTransformer]
+              checkGlutenPlan[ProjectExecTransformer]
             }
           }
       }

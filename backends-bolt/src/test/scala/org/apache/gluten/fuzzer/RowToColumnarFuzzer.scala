@@ -34,7 +34,7 @@ class RowToColumnarFuzzer extends FuzzerBase {
   }
 
   private def checkOperators(df: DataFrame): Unit = {
-    checkGlutenOperatorMatch[RowToBoltColumnarExec](df)
+    checkGlutenPlan[RowToBoltColumnarExec](df)
   }
 
   private val TEST_ROW_TO_COLUMNAR = "row to columnar"
