@@ -34,7 +34,6 @@ import org.apache.spark.shuffle.ShuffleReaderIteratorWrapper
 import org.apache.spark.softaffinity.SoftAffinity
 import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils
 import org.apache.spark.sql.catalyst.util.{DateFormatter, TimestampFormatter}
-import org.apache.spark.sql.connector.read.InputPartition
 import org.apache.spark.sql.execution.ShuffleReaderWithMetricsIterator
 import org.apache.spark.sql.execution.datasources.{FilePartition, PartitionedFile}
 import org.apache.spark.sql.execution.metric.SQLMetric
@@ -131,52 +130,6 @@ class BoltIteratorApi extends IteratorApi with Logging {
         metadataColumns.asJava,
         fileFormat,
         preferredLocations.toList.asJava,
-        mapAsJavaMap(properties),
-        otherMetadataColumns.asJava
-      ),
-      dataSchema,
-      fileFormat
-    )
-  }
-
-  override def genSplitInfoForPartitions(
-      partitionIndex: Int,
-      partitions: Seq[InputPartition],
-      partitionSchema: StructType,
-      dataSchema: StructType,
-      fileFormat: ReadFileFormat,
-      metadataColumnNames: Seq[String],
-      properties: Map[String, String]): SplitInfo = {
-    val partitionFiles = partitions.flatMap {
-      p =>
-        if (!p.isInstanceOf[FilePartition]) {
-          throw new UnsupportedOperationException(
-            s"Unsupported input partition ${p.getClass.getName}.")
-        }
-        p.asInstanceOf[FilePartition].files
-    }
-    val locations =
-      partitions.flatMap(p => SoftAffinity.getFilePartitionLocations(p.asInstanceOf[FilePartition]))
-    val (paths, starts, lengths) = getPartitionedFileInfo(partitionFiles).unzip3
-    val (fileSizes, modificationTimes) = getFileInfo(partitionFiles).unzip
-    val partitionColumns = getPartitionColumns(partitionSchema, partitionFiles)
-    val metadataColumns = partitionFiles
-      .map(
-        f => SparkShimLoader.getSparkShims.generateMetadataColumns(f, metadataColumnNames).asJava)
-    val otherMetadataColumns = partitionFiles
-      .map(f => SparkShimLoader.getSparkShims.getOtherConstantMetadataColumnValues(f))
-    setFileSchemaForLocalFiles(
-      LocalFilesBuilder.makeLocalFiles(
-        partitionIndex,
-        paths.asJava,
-        starts.asJava,
-        lengths.asJava,
-        fileSizes.asJava,
-        modificationTimes.asJava,
-        partitionColumns.map(_.asJava).asJava,
-        metadataColumns.asJava,
-        fileFormat,
-        locations.toList.asJava,
         mapAsJavaMap(properties),
         otherMetadataColumns.asJava
       ),

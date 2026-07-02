@@ -28,6 +28,7 @@ import org.apache.spark.sql.types.DoubleType
 import java.io.File
 
 import scala.io.Source
+
 case class Table(name: String, partitionColumns: Seq[String])
 
 abstract class WholeStageTransformerSuite

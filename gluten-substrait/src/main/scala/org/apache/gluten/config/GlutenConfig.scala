@@ -418,15 +418,6 @@ class GlutenConfig(conf: SQLConf) extends GlutenCoreConfig(conf) {
 
 object GlutenConfig extends ConfigRegistry {
 
-  val RAS_ENABLED =
-    buildConf("spark.gluten.ras.enabled")
-      .internal()
-      .doc("Compatibility alias used by legacy tests for toggling RAS-specific planning.")
-      .booleanConf
-      .createWithDefault(false)
-
-  val RAS_COST_MODEL = GlutenCoreConfig.GLUTEN_COST_MODEL
-
   // Hive configurations.
   val SPARK_SQL_PARQUET_COMPRESSION_CODEC: String = "spark.sql.parquet.compression.codec"
   val PARQUET_BLOCK_SIZE: String = "parquet.block.size"
