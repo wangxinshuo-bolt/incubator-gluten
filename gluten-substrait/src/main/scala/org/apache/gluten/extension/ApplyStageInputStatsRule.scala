@@ -110,7 +110,7 @@ object ApplyStageInputStatsRule extends Logging {
     logInfo("scan logical link:" + logicalPlan)
     logInfo("FileSourceScanTransformer logical plan " + logicalPlan)
     val maybeCatalogTable = logicalPlan.collectFirst {
-      case LogicalRelation(_, _, catalogTable, _) => catalogTable
+      case relation: LogicalRelation => relation.catalogTable
     }
     if (
       maybeCatalogTable.isDefined && maybeCatalogTable.get.isDefined &&

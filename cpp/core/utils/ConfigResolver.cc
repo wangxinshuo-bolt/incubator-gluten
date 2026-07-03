@@ -18,25 +18,53 @@
 // This File includes common helper functions with Arrow dependency.
 
 #include "ConfigResolver.h"
-#include <folly/Conv.h>
+#include "utils/Exception.h"
 
-static const std::string kGlutenEnableParallelDefault = "false";
+#include <algorithm>
+#include <cctype>
+
+namespace {
+
+bool parseBoolConfigValue(const std::string& value, const std::string& key) {
+  auto normalizedValue = value;
+  std::transform(normalizedValue.begin(), normalizedValue.end(), normalizedValue.begin(), [](unsigned char c) {
+    return std::tolower(c);
+  });
+
+  if (normalizedValue == "true" || normalizedValue == "1" || normalizedValue == "yes" || normalizedValue == "y") {
+    return true;
+  }
+  if (normalizedValue == "false" || normalizedValue == "0" || normalizedValue == "no" || normalizedValue == "n") {
+    return false;
+  }
+  GLUTEN_CHECK(false, "Invalid boolean config value for " + key + ": " + value);
+  return false;
+}
+
+} // namespace
+
+namespace gluten {
 
 std::string getConfigValue(
     const std::unordered_map<std::string, std::string>& confMap,
     const std::string& key,
     const std::optional<std::string>& fallbackValue) {
- auto got = confMap.find(key);
- if (got == confMap.end()) {
-  if (fallbackValue == std::nullopt) {
-   throw std::runtime_error("No such config key: " + key);
+  auto got = confMap.find(key);
+  if (got == confMap.end()) {
+    GLUTEN_CHECK(fallbackValue != std::nullopt, "No such config key: " + key);
+    return fallbackValue.value();
   }
-  return fallbackValue.value();
- }
- return got->second;
+  return got->second;
 }
-namespace gluten{
-bool isParallelExecEnabled(const std::unordered_map<std::string, std::string>& confMap) {
- return folly::to<bool>(getConfigValue(confMap, kGlutenEnableParallel, kGlutenEnableParallelDefault));
+
+bool getBoolConfigValue(
+    const std::unordered_map<std::string, std::string>& confMap,
+    const std::string& key,
+    bool fallbackValue) {
+  auto got = confMap.find(key);
+  if (got == confMap.end()) {
+    return fallbackValue;
+  }
+  return parseBoolConfigValue(got->second, key);
 }
 } // namespace gluten

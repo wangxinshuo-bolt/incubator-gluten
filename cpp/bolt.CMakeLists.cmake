@@ -42,6 +42,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS
 
 project(gluten)
 
+add_definitions(-DGLUTEN_ENABLE_BOLT)
+
 option(BUILD_BOLT "Build bolt backend" ON)
 option(BUILD_TESTS "Build Tests" OFF)
 option(BUILD_EXAMPLES "Build Examples" OFF)

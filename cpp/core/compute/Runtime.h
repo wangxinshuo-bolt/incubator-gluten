@@ -18,7 +18,9 @@
 #pragma once
 
 #include <glog/logging.h>
+#ifdef GLUTEN_ENABLE_BOLT
 #include <bolt/common/memory/sparksql/NativeMemoryManagerFactory.h>
+#endif
 #include <cstdint>
 #include <memory>
 
