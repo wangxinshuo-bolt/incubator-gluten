@@ -28,7 +28,9 @@
 #include "jni/JniWrapper.h"
 
 #include "memory/ColumnarBatch.h"
+#ifdef GLUTEN_ENABLE_BOLT
 #include "memory/BoltGlutenMemoryManager.h"
+#endif
 
 #include <arrow/c/bridge.h>
 #include <google/protobuf/stubs/common.h>
@@ -488,12 +490,14 @@ JNIEXPORT void JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrapp
   auto* memoryManager = jniCastOrThrow<MemoryManager>(nmmHandle);
   memoryManager->hold();
 
+#ifdef GLUTEN_ENABLE_BOLT
   if (gluten::BoltGlutenMemoryManager::enabled()) {
     auto memoryManagerName = jStringToCString(env, jName);
     auto holder = gluten::BoltGlutenMemoryManager::getMemoryManagerHolder(
         memoryManagerName, taskAttemptId, reinterpret_cast<int64_t>(memoryManager));
     holder->hold();
   }
+#endif
 
   JNI_METHOD_END()
 }
@@ -507,9 +511,11 @@ JNIEXPORT void JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrapp
   auto* memoryManager = jniCastOrThrow<MemoryManager>(nmmHandle);
   MemoryManager::release(memoryManager);
 
+#ifdef GLUTEN_ENABLE_BOLT
   if (gluten::BoltGlutenMemoryManager::enabled()) {
     gluten::BoltGlutenMemoryManager::destroy(taskAttemptId, nmmHandle);
   }
+#endif
 
   JNI_METHOD_END()
 }
@@ -575,7 +581,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
 
   // Check if "multi-thread Spark" is enabled.
   auto& conf = ctx->getConfMap();
-  bool parallelEnabled = isParallelExecEnabled(conf);
+  bool parallelEnabled = getBoolConfigValue(conf, kGlutenEnableParallel, false);
   LOG(INFO) << "nativeCreateKernelWithIterator parallelEnabled=" << parallelEnabled;
 
   auto spillDirStr = jStringToCString(env, spillDir);

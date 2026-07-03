@@ -23,15 +23,15 @@
 #include <string>
 #include <unordered_map>
 
-#include "config/GlutenConfig.h"
-#include "bolt/core/Config.h"
-
 namespace gluten {
 
-  std::string getConfigValue(
-      const std::unordered_map<std::string, std::string>& confMap,
-      const std::string& key,
-      const std::optional<std::string>& fallbackValue);
+std::string getConfigValue(
+    const std::unordered_map<std::string, std::string>& confMap,
+    const std::string& key,
+    const std::optional<std::string>& fallbackValue);
 
-  bool isParallelExecEnabled(const std::unordered_map<std::string, std::string>& confMap);
+bool getBoolConfigValue(
+    const std::unordered_map<std::string, std::string>& confMap,
+    const std::string& key,
+    bool fallbackValue);
 } // namespace gluten
