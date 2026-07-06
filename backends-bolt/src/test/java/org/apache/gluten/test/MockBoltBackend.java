@@ -73,7 +73,11 @@ public final class MockBoltBackend {
   private static SparkConf newSparkConf() {
     final SparkConf conf = new SparkConf();
     conf.set(GlutenConfig.SPARK_OFFHEAP_SIZE_KEY(), "1g");
-    conf.set(GlutenCoreConfig.COLUMNAR_TASK_OFFHEAP_SIZE_IN_BYTES().key(), "4g");
+    // Native BoltMemoryManager reads the executor-level
+    // spark.gluten.memory.offHeap.size.in.bytes to compute capacity. In real runs this key is
+    // derived by GlutenPlugin.setPredefinedConfigs, but tests bypass the plugin, so set it here
+    // explicitly to avoid "BoltMemoryManager expects capacity is bigger than 0".
+    conf.set(GlutenCoreConfig.COLUMNAR_OFFHEAP_SIZE_IN_BYTES().key(), "1g");
     conf.set(BoltConfig$.MODULE$.COLUMNAR_BOLT_CONNECTOR_IO_THREADS().key(), "0");
     return conf;
   }
