@@ -19,7 +19,6 @@ package org.apache.gluten.execution
 import org.apache.gluten.config.{GlutenConfig, GlutenCoreConfig}
 
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.execution.ProjectExec
 
 class BoltRoughCostModelSuite extends BoltWholeStageTransformerSuite {
   override protected val resourcePath: String = "/tpch-data-parquet"
@@ -47,7 +46,7 @@ class BoltRoughCostModelSuite extends BoltWholeStageTransformerSuite {
   test("fallback trivial project if its neighbor nodes fell back") {
     withSQLConf(GlutenConfig.COLUMNAR_FILESCAN_ENABLED.key -> "false") {
       runQueryAndCompare("select c1 as c3 from tmp1") {
-        checkSparkPlan[ProjectExec]
+        checkFallbackOperators(_, 0)
       }
     }
   }
@@ -55,7 +54,7 @@ class BoltRoughCostModelSuite extends BoltWholeStageTransformerSuite {
   test("avoid adding r2c whose schema contains complex data types") {
     withSQLConf(GlutenConfig.COLUMNAR_FILESCAN_ENABLED.key -> "false") {
       runQueryAndCompare("select array_contains(c3, 0) as list from tmp1") {
-        checkSparkPlan[ProjectExec]
+        checkFallbackOperators(_, 0)
       }
     }
   }

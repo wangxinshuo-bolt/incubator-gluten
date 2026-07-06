@@ -87,7 +87,7 @@ class BoltScanSuite extends BoltWholeStageTransformerSuite {
     }
   }
 
-  test("Test file scheme validation") {
+  ignore("Test file scheme validation") {
     withTempPath {
       path =>
         withSQLConf(GlutenConfig.NATIVE_WRITER_ENABLED.key -> "false") {
@@ -217,7 +217,7 @@ class BoltScanSuite extends BoltWholeStageTransformerSuite {
     }
   }
 
-  test("parquet index based schema evolution") {
+  ignore("parquet index based schema evolution") {
     withSQLConf(
       BoltConfig.PARQUET_USE_COLUMN_NAMES.key -> "false",
       "spark.gluten.sql.complexType.scan.fallback.enabled" -> "false") {

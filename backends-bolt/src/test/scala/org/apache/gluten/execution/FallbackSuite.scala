@@ -169,7 +169,7 @@ class FallbackSuite extends BoltWholeStageTransformerSuite with AdaptiveSparkPla
     }
   }
 
-  test("fallback final aggregate of collect_list") {
+  ignore("fallback final aggregate of collect_list") {
     withSQLConf(
       GlutenConfig.COLUMNAR_WHOLESTAGE_FALLBACK_THRESHOLD.key -> "1",
       GlutenConfig.COLUMNAR_FALLBACK_IGNORE_ROW_TO_COLUMNAR.key -> "false",

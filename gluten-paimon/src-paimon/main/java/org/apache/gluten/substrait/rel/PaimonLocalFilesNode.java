@@ -16,8 +16,6 @@
  */
 package org.apache.gluten.substrait.rel;
 
-import org.apache.gluten.config.GlutenConfig;
-
 import io.substrait.proto.ReadRel;
 import io.substrait.proto.ReadRel.LocalFiles.FileOrFiles.OrcReadOptions;
 import io.substrait.proto.ReadRel.LocalFiles.FileOrFiles.PaimonReadOptions;
@@ -91,9 +89,7 @@ public class PaimonLocalFilesNode extends LocalFilesNode {
 
     switch (fileFormat) {
       case ParquetReadFormat:
-        ParquetReadOptions parquetReadOptions =
-            ParquetReadOptions.newBuilder()
-                .build();
+        ParquetReadOptions parquetReadOptions = ParquetReadOptions.newBuilder().build();
         paimonBuilder.setParquet(parquetReadOptions);
         break;
       case OrcReadFormat:

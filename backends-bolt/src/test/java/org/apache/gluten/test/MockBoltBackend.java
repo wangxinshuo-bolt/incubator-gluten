@@ -18,6 +18,7 @@ package org.apache.gluten.test;
 
 import org.apache.gluten.config.BoltConfig$;
 import org.apache.gluten.config.GlutenConfig;
+import org.apache.gluten.config.GlutenCoreConfig;
 
 import com.codahale.metrics.MetricRegistry;
 import org.apache.spark.SparkConf;
@@ -72,6 +73,7 @@ public final class MockBoltBackend {
   private static SparkConf newSparkConf() {
     final SparkConf conf = new SparkConf();
     conf.set(GlutenConfig.SPARK_OFFHEAP_SIZE_KEY(), "1g");
+    conf.set(GlutenCoreConfig.COLUMNAR_TASK_OFFHEAP_SIZE_IN_BYTES().key(), "4g");
     conf.set(BoltConfig$.MODULE$.COLUMNAR_BOLT_CONNECTOR_IO_THREADS().key(), "0");
     return conf;
   }

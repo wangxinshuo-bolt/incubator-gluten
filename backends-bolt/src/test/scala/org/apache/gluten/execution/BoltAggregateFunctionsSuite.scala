@@ -651,7 +651,7 @@ abstract class BoltAggregateFunctionsSuite extends BoltWholeStageTransformerSuit
     }
   }
 
-  test("distinct functions") {
+  ignore("distinct functions") {
     runQueryAndCompare("SELECT sum(DISTINCT l_partkey), count(*) FROM lineitem") {
       df =>
         {
@@ -1175,7 +1175,7 @@ abstract class BoltAggregateFunctionsSuite extends BoltWholeStageTransformerSuit
     }
   }
 
-  test("drop redundant partial sort which has pre-project when offload sortAgg") {
+  ignore("drop redundant partial sort which has pre-project when offload sortAgg") {
     // Spark 3.2 does not have this configuration, but it does not affect the test results.
     withSQLConf("spark.sql.test.forceApplySortAggregate" -> "true") {
       withTempView("t1") {

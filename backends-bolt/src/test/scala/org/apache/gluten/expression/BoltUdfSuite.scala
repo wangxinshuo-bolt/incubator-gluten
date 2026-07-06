@@ -275,6 +275,13 @@ class BoltUdfSuiteCluster extends BoltUdfSuite {
   private lazy val driverUdfLibPath =
     udfLibPath.split(",").map("file://" + _).mkString(",")
 
+  override protected def beforeAll(): Unit = {
+    assume(
+      sys.props.contains(GLUTEN_JAR),
+      s"Skip cluster UDF tests because required system property '$GLUTEN_JAR' is not set.")
+    super.beforeAll()
+  }
+
   override protected def sparkConf: SparkConf = {
     super.sparkConf
       .set("spark.files", udfLibPath)

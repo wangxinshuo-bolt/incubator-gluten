@@ -17,7 +17,6 @@
 package org.apache.gluten.execution
 
 import org.apache.gluten.backendsapi.BackendsApiManager
-import org.apache.gluten.component.BoltPaimonScanTransformer
 import org.apache.gluten.test.FallbackUtil
 
 import org.apache.spark.SparkConf
@@ -129,13 +128,13 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
             runQueryAndCompare(s"""
                                   |select * from $tbl_name;
                                   |""".stripMargin) {
-              checkOperatorMatch[BoltPaimonScanTransformer]
+              checkOperatorMatch[PaimonScanTransformer]
             }
 
             runQueryAndCompare(s"""
                                   |select * from $tbl_name where id = 10;
                                   |""".stripMargin) {
-              checkOperatorMatch[BoltPaimonScanTransformer]
+              checkOperatorMatch[PaimonScanTransformer]
             }
           }
         }
@@ -177,13 +176,13 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
       runQueryAndCompare(s"""
                             |select * from $tbl_name where dt = '20250506';
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
 
       runQueryAndCompare(s"""
                             |select * from $tbl_name where dt = '20250506';
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -225,7 +224,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
       runQueryAndCompare(s"""
                             |select * from $tbl_name;
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
 
       // after full compact, it supports native scan
@@ -233,7 +232,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
       runQueryAndCompare(s"""
                             |select * from $tbl_name;
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -267,13 +266,13 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
           runQueryAndCompare(s"""
                                 |select * from $tbl_name where id = 1;
                                 |""".stripMargin) {
-            checkOperatorMatch[BoltPaimonScanTransformer]
+            checkOperatorMatch[PaimonScanTransformer]
           }
 
           runQueryAndCompare(s"""
                                 |select * from $tbl_name where name = '2';
                                 |""".stripMargin) {
-            checkOperatorMatch[BoltPaimonScanTransformer]
+            checkOperatorMatch[PaimonScanTransformer]
           }
         }
     }
@@ -330,7 +329,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
       runQueryAndCompare(s"""
                             |select * from $tbl_name;
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -514,7 +513,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
       runQueryAndCompare(s"""
                             |select name from $tbl_name;
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -687,7 +686,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -720,7 +719,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -752,7 +751,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -795,7 +794,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -832,7 +831,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -881,7 +880,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -930,7 +929,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -979,7 +978,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1028,7 +1027,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1068,7 +1067,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1121,7 +1120,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1174,7 +1173,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1223,7 +1222,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1272,7 +1271,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin,
         noFallBack = true) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1312,7 +1311,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
       runQueryAndCompare(s"""
                             |select d from $tbl_name;
                             |""".stripMargin) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
   }
@@ -1337,7 +1336,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
     """.stripMargin)
 
     runQueryAndCompare("SELECT name FROM T") {
-      checkOperatorMatch[BoltPaimonScanTransformer]
+      checkOperatorMatch[PaimonScanTransformer]
     }
   }
 
@@ -1363,7 +1362,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
     // delete isn't drop partition
     spark.sql("DELETE FROM T WHERE name = 'a' and hh = '12'")
     runQueryAndCompare("SELECT * FROM T ORDER BY id") {
-      checkOperatorMatch[BoltPaimonScanTransformer]
+      checkOperatorMatch[PaimonScanTransformer]
     }
   }
 
@@ -1406,7 +1405,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
            |select * from $tbl_name;
            |""".stripMargin
       ) {
-        checkOperatorMatch[BoltPaimonScanTransformer]
+        checkOperatorMatch[PaimonScanTransformer]
       }
     }
 
@@ -1429,7 +1428,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
     runQueryAndCompare(s"""
                           |SELECT * FROM T
                           |""".stripMargin) {
-      checkOperatorMatch[BoltPaimonScanTransformer]
+      checkOperatorMatch[PaimonScanTransformer]
     }
   }
 
@@ -1451,7 +1450,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
     runQueryAndCompare(s"""
                           |SELECT * FROM T
                           |""".stripMargin) {
-      checkOperatorMatch[BoltPaimonScanTransformer]
+      checkOperatorMatch[PaimonScanTransformer]
     }
   }
 
@@ -1515,7 +1514,7 @@ class BoltPaimonSuite extends WholeStageTransformerSuite {
     ).foreach {
       query =>
         runQueryAndCompare(query) {
-          checkOperatorMatch[BoltPaimonScanTransformer]
+          checkOperatorMatch[PaimonScanTransformer]
         }
     }
   }

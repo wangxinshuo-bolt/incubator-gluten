@@ -16,13 +16,31 @@
  */
 package org.apache.gluten.fs;
 
+import org.apache.gluten.backendsapi.ListenerApi;
+import org.apache.gluten.backendsapi.bolt.BoltListenerApi;
+import org.apache.gluten.test.MockBoltBackend;
+
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 
 public abstract class TestNativeDataset extends TestDataset {
+  private static final ListenerApi API = new BoltListenerApi();
+
+  @BeforeClass
+  public static void setupBackend() {
+    API.onExecutorStart(MockBoltBackend.mockPluginContext());
+  }
+
+  @AfterClass
+  public static void tearDownBackend() {
+    API.onExecutorShutdown();
+  }
+
   protected void assertScanBatchesProduced(DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);

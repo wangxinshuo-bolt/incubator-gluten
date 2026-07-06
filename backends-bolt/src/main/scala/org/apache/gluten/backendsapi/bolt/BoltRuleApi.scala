@@ -106,8 +106,8 @@ object BoltRuleApi {
     // Legacy: Post-transform rules.
     injector.injectPostTransform(c => AppendBatchResizeForShuffleInputAndOutput(c.caller.isAqe()))
     injector.injectPostTransform(_ => UnionTransformerRule())
-    injector.injectPostTransform(c => PartialProjectRule.apply(c.session))
     injector.injectPostTransform(_ => PartialGenerateRule())
+    injector.injectPostTransform(c => PartialProjectRule.apply(c.session))
     injector.injectPostTransform(_ => RemoveNativeWriteFilesSortAndProject())
     injector.injectPostTransform(_ => PushDownFilterToScan)
     injector.injectPostTransform(_ => PushDownInputFileExpression.PostOffload)

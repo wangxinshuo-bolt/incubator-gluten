@@ -16,6 +16,7 @@
  */
 package org.apache.gluten.execution.enhanced
 
+import org.apache.gluten.config.ConfigJniWrapper
 import org.apache.gluten.execution.{BoltIcebergAppendDataExec, BoltIcebergOverwriteByExpressionExec, BoltIcebergOverwritePartitionsDynamicExec, BoltIcebergReplaceDataExec, ColumnarToRowExecBase, IcebergSuite}
 import org.apache.gluten.tags.EnhancedFeaturesTest
 
@@ -23,8 +24,29 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.execution.CommandResultExec
 import org.apache.spark.sql.gluten.TestUtils
 
+import org.apache.hadoop.fs.{FileSystem, Path}
+
 @EnhancedFeaturesTest
 class BoltIcebergSuite extends IcebergSuite {
+
+  private def hasHadoopOpenFileApi: Boolean = {
+    try {
+      classOf[FileSystem].getMethod("openFile", classOf[Path])
+      true
+    } catch {
+      case _: NoSuchMethodException => false
+    }
+  }
+
+  override def beforeAll(): Unit = {
+    assume(
+      ConfigJniWrapper.isEnhancedFeaturesEnabled(),
+      "Skip enhanced Iceberg tests because bolt enhanced features are disabled in native backend.")
+    assume(
+      hasHadoopOpenFileApi,
+      "Skip enhanced Iceberg tests because runtime Hadoop does not provide FileSystem.openFile(Path).")
+    super.beforeAll()
+  }
 
   test("iceberg insert") {
     withTable("iceberg_tb2") {

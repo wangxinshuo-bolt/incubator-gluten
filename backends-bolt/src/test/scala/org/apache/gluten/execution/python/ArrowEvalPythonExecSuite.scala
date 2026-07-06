@@ -24,6 +24,8 @@ import org.apache.spark.sql.IntegratedUDFTestUtils
 import org.apache.spark.sql.types.{DataType, LongType, StringType}
 import org.apache.spark.util.SparkVersionUtil
 
+import scala.sys.process.{Process, ProcessLogger}
+
 class ArrowEvalPythonExecSuite extends WholeStageTransformerSuite {
 
   import IntegratedUDFTestUtils._
@@ -36,6 +38,22 @@ class ArrowEvalPythonExecSuite extends WholeStageTransformerSuite {
     newTestScalarPandasUDF(name = "pyarrowUDF", returnType = Some(StringType))
   private val pyarrowTestUDFLong =
     newTestScalarPandasUDF(name = "pyarrowUDF", returnType = Some(LongType))
+
+  private def hasPySparkEnvironment: Boolean = {
+    try {
+      Process(Seq("python3", "-c", "import py4j, pyspark"))
+        .!(ProcessLogger(_ => (), _ => ())) == 0
+    } catch {
+      case _: Throwable => false
+    }
+  }
+
+  override def beforeAll(): Unit = {
+    assume(
+      hasPySparkEnvironment,
+      "Skip Arrow Python tests because python3/py4j/pyspark is unavailable.")
+    super.beforeAll()
+  }
 
   override def sparkConf: SparkConf = {
     super.sparkConf

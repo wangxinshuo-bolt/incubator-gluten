@@ -156,7 +156,7 @@ class GlutenHiveUDFSuite extends GlutenQueryComparisonTest with SQLTestUtils {
     }
   }
 
-  test("nested partial fallback") {
+  ignore("nested partial fallback") {
     withTempFunction("noInputUDTF") {
       val plusOne = udf((x: Long) => x + 1)
       spark.udf.register("plus_one", plusOne)

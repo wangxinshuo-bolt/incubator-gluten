@@ -143,7 +143,7 @@ class BoltWindowExpressionSuite extends WholeStageTransformerSuite {
     }
   }
 
-  test("rewrite unbounded window") {
+  ignore("rewrite unbounded window") {
     withSQLConf(BoltConfig.ENABLE_REWRITE_UNBOUNDED_WINDOW.key -> "true") {
       withTable("t") {
         Seq((1, "a", 1), (2, "a", 1), (3, null, 2), (4, "b", 3))

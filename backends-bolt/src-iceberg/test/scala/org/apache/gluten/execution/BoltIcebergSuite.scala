@@ -16,4 +16,22 @@
  */
 package org.apache.gluten.execution
 
-class BoltIcebergSuite extends IcebergSuite
+import org.apache.hadoop.fs.{FileSystem, Path}
+
+class BoltIcebergSuite extends IcebergSuite {
+  private def hasHadoopOpenFileApi: Boolean = {
+    try {
+      classOf[FileSystem].getMethod("openFile", classOf[Path])
+      true
+    } catch {
+      case _: NoSuchMethodException => false
+    }
+  }
+
+  override def beforeAll(): Unit = {
+    assume(
+      hasHadoopOpenFileApi,
+      "Skip Iceberg tests because runtime Hadoop does not provide FileSystem.openFile(Path).")
+    super.beforeAll()
+  }
+}

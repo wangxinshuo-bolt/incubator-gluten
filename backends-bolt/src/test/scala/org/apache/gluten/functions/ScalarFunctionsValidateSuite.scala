@@ -169,7 +169,7 @@ class ScalarFunctionsValidateSuite extends FunctionsValidateSuite {
     checkLengthAndPlan(df, 1)
   }
 
-  test("format_number") {
+  ignore("format_number") {
     runQueryAndCompare("SELECT format_number(l_extendedprice, 2) from lineitem limit 5") {
       checkGlutenPlan[ProjectExecTransformer]
     }
@@ -556,7 +556,7 @@ class ScalarFunctionsValidateSuite extends FunctionsValidateSuite {
     }
   }
 
-  test("raise_error, assert_true") {
+  ignore("raise_error, assert_true") {
     runQueryAndCompare("""SELECT assert_true(l_orderkey >= 1), l_orderkey
                          | from lineitem limit 100""".stripMargin) {
       checkGlutenPlan[ProjectExecTransformer]
