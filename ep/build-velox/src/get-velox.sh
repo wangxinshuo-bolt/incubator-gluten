@@ -154,6 +154,11 @@ function setup_linux {
   local LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
   local LINUX_VERSION_ID=$(. /etc/os-release && echo ${VERSION_ID})
 
+  if [[ "$LINUX_DISTRIBUTION" == "velinux" ]]; then
+    LINUX_DISTRIBUTION=debian
+    LINUX_VERSION_ID=12
+  fi
+
   export SUDO="sudo --preserve-env"
   if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" || "$LINUX_DISTRIBUTION" == "pop" ]]; then
     process_setup_ubuntu

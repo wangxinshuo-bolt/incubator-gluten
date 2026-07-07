@@ -223,7 +223,15 @@ function setup_linux {
   # Skip UTF-8 validation in JSON parsing. Required for compatibility with Spark.
   export SIMDJSON_SKIPUTF8VALIDATION=ON
 
+  if [[ "$LINUX_DISTRIBUTION" == "velinux" ]]; then
+    LINUX_DISTRIBUTION=debian
+    LINUX_VERSION_ID=12
+  fi
+
   if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" || "$LINUX_DISTRIBUTION" == "pop" ]]; then
+    if [[ -f scripts/setup-common.sh ]]; then
+      sed -i 's/git apply "$patch" || exit 1/patch -p1 -d "${DEPENDENCY_DIR}\/arrow" < "$patch" || exit 1/' scripts/setup-common.sh
+    fi
     scripts/setup-ubuntu.sh
   elif [[ "$LINUX_DISTRIBUTION" == "centos" ]]; then
     case "$LINUX_VERSION_ID" in
