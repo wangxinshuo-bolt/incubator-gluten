@@ -26,23 +26,23 @@
 #include <gflags/gflags.h>
 
 #include "benchmarks/common/BenchmarkUtils.h"
+#include "bolt/exec/PlanNodeStats.h"
 #include "compute/BoltBackend.h"
 #include "compute/BoltRuntime.h"
-#include "config/GlutenConfig.h"
 #include "config/BoltConfig.h"
+#include "config/GlutenConfig.h"
 #include "operators/reader/FileReaderIterator.h"
 #include "operators/writer/BoltColumnarBatchWriter.h"
-#include "shuffle/LocalPartitionWriter.h"
 #include "shuffle/BoltShuffleWriter.h"
+#include "shuffle/LocalPartitionWriter.h"
 #include "shuffle/rss/RssPartitionWriter.h"
 #include "tests/utils/LocalRssClient.h"
 #include "tests/utils/TestAllocationListener.h"
 #include "tests/utils/TestStreamReader.h"
+#include "utils/BoltArrowUtils.h"
 #include "utils/Exception.h"
 #include "utils/StringUtil.h"
 #include "utils/Timer.h"
-#include "utils/BoltArrowUtils.h"
-#include "bolt/exec/PlanNodeStats.h"
 
 using namespace gluten;
 
@@ -707,7 +707,8 @@ int main(int argc, char** argv) {
   }
 
   RuntimeFactory runtimeFactory = [=](MemoryManager* memoryManager) {
-    return dynamic_cast<BoltRuntime*>(Runtime::create(kBoltBackendKind, memoryManager, 1, sessionConf));
+    return dynamic_cast<BoltRuntime*>(
+        Runtime::create(kBoltBackendKind, memoryManager, nullptr, sessionConf, RuntimeOptions{1}));
   };
 
   const auto localDirs = createLocalDirs();
