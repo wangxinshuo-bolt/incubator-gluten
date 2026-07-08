@@ -255,6 +255,13 @@ find_package(bolt CONFIG REQUIRED)
 find_package(xxHash CONFIG REQUIRED)
 find_package(libbacktrace REQUIRED CONFIG)
 
+set(GLUTEN_BOLT_INCLUDE_DIRS ${bolt_INCLUDE_DIRS})
+foreach(BOLT_INCLUDE_DIR IN LISTS bolt_INCLUDE_DIRS)
+  if(EXISTS "${BOLT_INCLUDE_DIR}/bolt")
+    list(APPEND GLUTEN_BOLT_INCLUDE_DIRS "${BOLT_INCLUDE_DIR}/bolt")
+  endif()
+endforeach()
+
 # Note: jemalloc is used in runtime instead of compile time.
 # if(ENABLE_JEMALLOC_STATS)
 #   find_package(jemalloc REQUIRED CONFIG)
@@ -270,7 +277,7 @@ find_package(libbacktrace REQUIRED CONFIG)
 # endif()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC gluten bolt::bolt xxHash::xxhash gfx::timsort libbacktrace::libbacktrace folly::folly gflags::gflags)
-target_include_directories(${PROJECT_NAME} PUBLIC gfx::timsort)
+target_include_directories(${PROJECT_NAME} PUBLIC gfx::timsort ${GLUTEN_BOLT_INCLUDE_DIRS})
 
 execute_process(
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/bolt-build-info.sh ${bolt_INCLUDE_DIRS}
@@ -280,6 +287,7 @@ message(STATUS "Bolt Build Info:\n${bolt_build_info}")
 
 if (BUILD_STATIC)
   target_link_libraries(${PROJECT_NAME}_static PUBLIC gluten bolt::bolt xxHash::xxhash gfx::timsort libbacktrace::libbacktrace folly::folly gflags::gflags)
+  target_include_directories(${PROJECT_NAME}_static PUBLIC ${GLUTEN_BOLT_INCLUDE_DIRS})
 
   #if(ENABLE_JEMALLOC_STATS)
   #  target_link_libraries(${PROJECT_NAME}_static PUBLIC jemalloc::jemalloc)
