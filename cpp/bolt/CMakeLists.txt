@@ -123,6 +123,7 @@ set(BOLT_SRCS
     compute/WholeStageResultIterator.cc
     # compute/iceberg/IcebergPlanConverter.cc
     compute/paimon/PaimonPlanUtils.cc
+    jni/BoltInputIterator.cc
     jni/JniFileSystem.cc
     jni/JniUdf.cc
     jni/BoltJniWrapper.cc

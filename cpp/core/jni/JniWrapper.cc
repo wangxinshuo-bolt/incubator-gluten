@@ -562,11 +562,6 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
     ctx->enableDumping();
   }
 
-  // Check if "multi-thread Spark" is enabled.
-  auto& conf = ctx->getConfMap();
-  bool parallelEnabled = getBoolConfigValue(conf, kGlutenEnableParallel, false);
-  LOG(INFO) << "nativeCreateKernelWithIterator parallelEnabled=" << parallelEnabled;
-
   auto spillDirStr = jStringToCString(env, spillDir);
 
   auto safePlanArray = getByteArrayElementsSafe(env, planArr);
@@ -592,16 +587,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
     inputIters.reserve(itersLen);
     for (int idx = 0; idx < itersLen; idx++) {
       jobject iter = env->GetObjectArrayElement(batchItrArray, idx);
-      std::unique_ptr<JniColumnarBatchIterator> arrayIter;
-      // [multi-thread spark] Try to wrap the input iterator as a parallel shuffle reader first;
-      // falls back to the regular iterator when parallel exec is disabled or not applicable.
-      auto shuffleReaderIter = ShuffleReaderWrapperedIterator::tryFrom(env, iter, ctx, parallelEnabled, idx);
-      if (shuffleReaderIter != nullptr) {
-        LOG(INFO) << "Wrap ShuffleReaderWrapperedIterator for input iterator " << idx;
-        arrayIter = std::move(shuffleReaderIter);
-      } else {
-        arrayIter = std::make_unique<JniColumnarBatchIterator>(env, iter, ctx, parallelEnabled, idx);
-      }
+      auto arrayIter = createInputIterator(env, iter, ctx, idx);
       auto resultIter = std::make_shared<ResultIterator>(std::move(arrayIter));
       inputIters.push_back(std::move(resultIter));
     }
