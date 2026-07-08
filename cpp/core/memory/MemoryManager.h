@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -28,6 +29,11 @@ namespace gluten {
 
 struct MemoryManagerOptions {
   std::string name;
+};
+
+struct MemoryManagerLifecycleContext {
+  std::string name;
+  int64_t taskAttemptId{-1};
 };
 
 class MemoryManager {
@@ -75,6 +81,12 @@ class MemoryManager {
   // destroyed. Which means, a call to this function would make sure the memory blocks directly or indirectly managed
   // by this manager, be guaranteed safe to access during the period that this manager is alive.
   virtual void hold() = 0;
+
+  virtual void hold(const MemoryManagerLifecycleContext&) {
+    hold();
+  }
+
+  virtual void beforeRelease(const MemoryManagerLifecycleContext&) {}
 
  private:
   std::string kind_;
