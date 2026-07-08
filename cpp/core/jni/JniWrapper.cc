@@ -285,7 +285,7 @@ std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuf
 extern "C" {
 #endif
 
-jint JNI_OnLoad_Base(JavaVM* vm, void* reserved) {
+jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
@@ -341,7 +341,7 @@ jint JNI_OnLoad_Base(JavaVM* vm, void* reserved) {
   return jniVersion;
 }
 
-void JNI_OnUnload_Base(JavaVM* vm, void* reserved) {
+void JNI_OnUnload(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
   env->DeleteGlobalRef(jniByteInputStreamClass);
@@ -474,7 +474,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrap
   JNI_METHOD_START
   auto* memoryManager = jniCastOrThrow<MemoryManager>(nmmHandle);
   return memoryManager->shrink(static_cast<int64_t>(size));
-  // used before spill, but bolt trigger spill by self now
   JNI_METHOD_END(kInvalidObjectHandle)
 }
 
@@ -1217,7 +1216,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_vectorized_ShuffleWriterJniWrappe
     throw GlutenException(errorMessage);
   }
 
-  // The column batch maybe BoltColumnBatch or ArrowCStructColumnarBatch(FallbackRangeShuffleWriter)
+  // The column batch may be a backend column batch or ArrowCStructColumnarBatch(FallbackRangeShuffleWriter).
   auto batch = ObjectStore::retrieve<ColumnarBatch>(batchHandle);
   arrowAssertOkOrThrow(shuffleWriter->write(batch, memLimit), "Native write: shuffle writer failed");
   return shuffleWriter->bytesWritten();
