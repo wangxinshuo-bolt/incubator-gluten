@@ -191,8 +191,8 @@ class InternalRuntime : public Runtime {
       MemoryManager* memoryManager,
       ThreadManager* threadManager,
       const std::unordered_map<std::string, std::string>& confMap,
-      int64_t taskId)
-      : Runtime(kind, memoryManager, threadManager, confMap, taskId) {}
+      RuntimeOptions options)
+      : Runtime(kind, memoryManager, threadManager, confMap, std::move(options)) {}
 };
 
 MemoryManager* internalMemoryManagerFactory(
@@ -232,8 +232,8 @@ Runtime* internalRuntimeFactory(
     MemoryManager* memoryManager,
     ThreadManager* threadManager,
     const std::unordered_map<std::string, std::string>& sessionConf,
-    int64_t taskId) {
-  return new InternalRuntime(kind, memoryManager, threadManager, sessionConf, taskId);
+    const RuntimeOptions& options) {
+  return new InternalRuntime(kind, memoryManager, threadManager, sessionConf, options);
 }
 
 void internalRuntimeReleaser(Runtime* runtime) {
@@ -374,8 +374,8 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_runtime_RuntimeJniWrapper_createR
   auto sparkConf = parseConfMap(env, safeArray.elems(), safeArray.length());
   auto backendType = jStringToCString(env, jBackendType);
 
-  auto runtime =
-      Runtime::create(backendType, memoryManager, threadManager, sparkConf, static_cast<int64_t>(taskAttemptId));
+  auto runtime = Runtime::create(
+      backendType, memoryManager, threadManager, sparkConf, RuntimeOptions{static_cast<int64_t>(taskAttemptId)});
 
   return reinterpret_cast<jlong>(runtime);
   JNI_METHOD_END(kInvalidObjectHandle)
