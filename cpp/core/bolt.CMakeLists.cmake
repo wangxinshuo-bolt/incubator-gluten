@@ -90,7 +90,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
     memory/MemoryManager.cc
     memory/ArrowMemoryPool.cc
     memory/ColumnarBatch.cc
-    memory/BoltGlutenMemoryManager.cc
     threads/ThreadInitializer.cc
     threads/ThreadManager.cc
     shuffle/Dictionary.cc

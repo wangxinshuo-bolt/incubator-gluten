@@ -128,6 +128,7 @@ set(BOLT_SRCS
     jni/BoltJniWrapper.cc
     memory/BufferOutputStream.cc
     memory/BoltColumnarBatch.cc
+    memory/BoltGlutenMemoryManager.cc
     memory/BoltMemoryManager.cc
     operators/functions/RegistrationAllFunctions.cc
     operators/functions/RowConstructorWithNull.cc
@@ -410,4 +411,3 @@ if ( ${target_type} STREQUAL "STATIC_LIBRARY" )
   install(TARGETS gluten
         DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
-
