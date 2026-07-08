@@ -77,8 +77,8 @@ namespace {
 MemoryManager* boltMemoryManagerFactory(
     const std::string& kind,
     std::unique_ptr<AllocationListener> listener,
-    const std::string& name) {
-  return new BoltMemoryManager(kind, std::move(listener), *BoltBackend::get()->getBackendConf(), name);
+    const MemoryManagerOptions& options) {
+  return new BoltMemoryManager(kind, std::move(listener), *BoltBackend::get()->getBackendConf(), options.name);
 }
 
 void boltMemoryManagerReleaser(MemoryManager* memoryManager) {
