@@ -28,9 +28,6 @@
 #include "jni/JniWrapper.h"
 
 #include "memory/ColumnarBatch.h"
-#ifdef GLUTEN_ENABLE_BOLT
-#include "memory/BoltGlutenMemoryManager.h"
-#endif
 
 #include <arrow/c/bridge.h>
 #include <google/protobuf/stubs/common.h>
@@ -489,17 +486,8 @@ JNIEXPORT void JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrapp
     jlong taskAttemptId) {
   JNI_METHOD_START
   auto* memoryManager = jniCastOrThrow<MemoryManager>(nmmHandle);
-  memoryManager->hold();
-
-#ifdef GLUTEN_ENABLE_BOLT
-  if (gluten::BoltGlutenMemoryManager::enabled()) {
-    auto memoryManagerName = jStringToCString(env, jName);
-    auto holder = gluten::BoltGlutenMemoryManager::getMemoryManagerHolder(
-        memoryManagerName, taskAttemptId, reinterpret_cast<int64_t>(memoryManager));
-    holder->hold();
-  }
-#endif
-
+  auto memoryManagerName = jStringToCString(env, jName);
+  memoryManager->hold(MemoryManagerLifecycleContext{memoryManagerName, static_cast<int64_t>(taskAttemptId)});
   JNI_METHOD_END()
 }
 
@@ -510,14 +498,8 @@ JNIEXPORT void JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrapp
     jlong taskAttemptId) {
   JNI_METHOD_START
   auto* memoryManager = jniCastOrThrow<MemoryManager>(nmmHandle);
+  memoryManager->beforeRelease(MemoryManagerLifecycleContext{"", static_cast<int64_t>(taskAttemptId)});
   MemoryManager::release(memoryManager);
-
-#ifdef GLUTEN_ENABLE_BOLT
-  if (gluten::BoltGlutenMemoryManager::enabled()) {
-    gluten::BoltGlutenMemoryManager::destroy(taskAttemptId, nmmHandle);
-  }
-#endif
-
   JNI_METHOD_END()
 }
 

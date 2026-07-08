@@ -29,6 +29,7 @@
 
 #include "config/BoltConfig.h"
 #include "memory/ArrowMemoryPool.h"
+#include "memory/BoltGlutenMemoryManager.h"
 #include "utils/Exception.h"
 
 DECLARE_int32(gluten_bolt_async_timeout_on_task_stopping);
@@ -367,6 +368,21 @@ void holdInternal(
 
 void BoltMemoryManager::hold() {
   holdInternal(heldBoltPools_, boltAggregatePool_.get());
+}
+
+void BoltMemoryManager::hold(const MemoryManagerLifecycleContext& context) {
+  hold();
+  if (BoltGlutenMemoryManager::enabled()) {
+    auto holder = BoltGlutenMemoryManager::getMemoryManagerHolder(
+        context.name.empty() ? name() : context.name, context.taskAttemptId, reinterpret_cast<int64_t>(this));
+    holder->hold();
+  }
+}
+
+void BoltMemoryManager::beforeRelease(const MemoryManagerLifecycleContext& context) {
+  if (BoltGlutenMemoryManager::enabled()) {
+    BoltGlutenMemoryManager::destroy(context.taskAttemptId, reinterpret_cast<int64_t>(this));
+  }
 }
 
 bool BoltMemoryManager::tryDestructSafe() {
