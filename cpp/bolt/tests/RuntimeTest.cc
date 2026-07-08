@@ -29,7 +29,7 @@ namespace gluten {
 
 class DummyMemoryManager final : public MemoryManager {
  public:
-  DummyMemoryManager(const std::string& kind) : MemoryManager(kind, "dummy-memory-manager"){};
+  DummyMemoryManager(const std::string& kind) : MemoryManager(kind, MemoryManagerOptions{"dummy-memory-manager"}){};
 
   arrow::MemoryPool* defaultArrowMemoryPool() override {
     throw GlutenException("Not yet implemented");
@@ -166,7 +166,8 @@ TEST(TestRuntime, CreateRuntime) {
 
 TEST(TestRuntime, CreateBoltRuntime) {
   BoltBackend::create(AllocationListener::noop(), {{kSparkOffHeapMemory, "7516192768"}});
-  auto mm = MemoryManager::create(kBoltBackendKind, AllocationListener::noop(), "test-bolt-runtime");
+  auto mm =
+      MemoryManager::create(kBoltBackendKind, AllocationListener::noop(), MemoryManagerOptions{"test-bolt-runtime"});
   auto tm = ThreadManager::create(kBoltBackendKind, ThreadInitializer::noop());
   auto runtime = Runtime::create(kBoltBackendKind, mm, tm, {{kSparkOffHeapMemory, "7516192768"}}, RuntimeOptions{1});
   ASSERT_EQ(typeid(*runtime), typeid(BoltRuntime));

@@ -208,8 +208,7 @@ ArbitratorFactoryRegister::ArbitratorFactoryRegister(gluten::AllocationListener*
   kind_ = "GLUTEN_ARBITRATOR_FACTORY_" + std::to_string(id++);
   bolt::memory::MemoryArbitrator::registerFactory(
       kind_,
-      [this](
-          const bolt::memory::MemoryArbitrator::Config& config) -> std::unique_ptr<bolt::memory::MemoryArbitrator> {
+      [this](const bolt::memory::MemoryArbitrator::Config& config) -> std::unique_ptr<bolt::memory::MemoryArbitrator> {
         return std::make_unique<ListenableArbitrator>(config, listener_);
       });
 }
@@ -223,7 +222,7 @@ BoltMemoryManager::BoltMemoryManager(
     std::unique_ptr<AllocationListener> listener,
     const bytedance::bolt::config::ConfigBase& backendConf,
     const std::string& name)
-    : MemoryManager(kind, name), listener_(std::move(listener)) {
+    : MemoryManager(kind, MemoryManagerOptions{name}), listener_(std::move(listener)) {
   auto reservationBlockSize =
       backendConf.get<uint64_t>(kMemoryReservationBlockSize, kMemoryReservationBlockSizeDefault);
   blockListener_ = std::make_unique<BlockAllocationListener>(listener_.get(), reservationBlockSize);
@@ -293,10 +292,13 @@ MemoryUsageStats collectGlutenAllocatorMemoryUsageStats(
   return stats;
 }
 
-void logMemoryUsageStats(MemoryUsageStats stats, const std::string& name, const std::string& logPrefix, std::stringstream& ss) {
-  ss << logPrefix << "+- " << name
-     << " (used: " << bolt::succinctBytes(stats.current())
-     << ", peak: " <<  bolt::succinctBytes(stats.peak()) << ")\n";
+void logMemoryUsageStats(
+    MemoryUsageStats stats,
+    const std::string& name,
+    const std::string& logPrefix,
+    std::stringstream& ss) {
+  ss << logPrefix << "+- " << name << " (used: " << bolt::succinctBytes(stats.current())
+     << ", peak: " << bolt::succinctBytes(stats.peak()) << ")\n";
   if (stats.children_size() > 0) {
     for (auto it = stats.children().begin(); it != stats.children().end(); ++it) {
       logMemoryUsageStats(it->second, it->first, logPrefix + "   ", ss);
@@ -342,8 +344,7 @@ const MemoryUsageStats BoltMemoryManager::collectMemoryUsageStats() const {
   stats.set_current(listener_->currentBytes());
   stats.set_peak(listener_->peakBytes());
   stats.mutable_children()->emplace("gluten::MemoryAllocator", collectGlutenAllocatorMemoryUsageStats(arrowPools_));
-  stats.mutable_children()->emplace(
-      boltAggregatePool_->name(), collectBoltMemoryUsageStats(boltAggregatePool_.get()));
+  stats.mutable_children()->emplace(boltAggregatePool_->name(), collectBoltMemoryUsageStats(boltAggregatePool_.get()));
   return stats;
 }
 

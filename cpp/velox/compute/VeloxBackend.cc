@@ -80,8 +80,8 @@ namespace {
 MemoryManager* veloxMemoryManagerFactory(
     const std::string& kind,
     std::unique_ptr<AllocationListener> listener,
-    const std::string& name) {
-  return new VeloxMemoryManager(kind, std::move(listener), *VeloxBackend::get()->getBackendConf(), name);
+    const MemoryManagerOptions& options) {
+  return new VeloxMemoryManager(kind, std::move(listener), *VeloxBackend::get()->getBackendConf(), options.name);
 }
 
 void veloxMemoryManagerReleaser(MemoryManager* memoryManager) {
