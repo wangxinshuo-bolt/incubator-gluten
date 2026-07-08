@@ -178,7 +178,7 @@ if(BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
-add_subdirectory(nativeLoader)
+add_subdirectory(${CMAKE_SOURCE_DIR}/bolt/nativeLoader ${CMAKE_CURRENT_BINARY_DIR}/nativeLoader)
 
 
 find_package(Arrow CONFIG REQUIRED)
