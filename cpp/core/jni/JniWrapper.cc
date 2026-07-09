@@ -37,7 +37,6 @@
 #include "shuffle/ShuffleWriter.h"
 #include "shuffle/Utils.h"
 #include "utils/ArrowStatus.h"
-#include "utils/ConfigResolver.h"
 #include "utils/StringUtil.h"
 
 #include <arrow/c/bridge.h>
