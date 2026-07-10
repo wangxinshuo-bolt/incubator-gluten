@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <limits>
+#include <mutex>
 
 #include "compute/Runtime.h"
 #include "config/GlutenConfig.h"
@@ -72,6 +73,9 @@ jmethodID shuffleReaderMetricsSetDeserializeTime;
 
 jclass shuffleStreamReaderClass;
 jmethodID shuffleStreamReaderNextStream;
+
+std::mutex inputIteratorFactoryMutex;
+InputIteratorFactory inputIteratorFactory;
 
 jbyteArray toJByteArray(JNIEnv* env, const std::vector<uint8_t>& bytes, const std::string& context) {
   GLUTEN_CHECK(
@@ -283,6 +287,24 @@ namespace gluten {
 
 std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuffleStreamReader) {
   return std::make_shared<ShuffleStreamReader>(env, jShuffleStreamReader);
+}
+
+void registerInputIteratorFactory(InputIteratorFactory factory) {
+  std::lock_guard<std::mutex> lock(inputIteratorFactoryMutex);
+  inputIteratorFactory = std::move(factory);
+}
+
+std::unique_ptr<ColumnarBatchIterator>
+createInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex) {
+  InputIteratorFactory factory;
+  {
+    std::lock_guard<std::mutex> lock(inputIteratorFactoryMutex);
+    factory = inputIteratorFactory;
+  }
+  if (factory) {
+    return factory(env, jColumnarBatchItr, runtime, iteratorIndex);
+  }
+  return std::make_unique<JniColumnarBatchIterator>(env, jColumnarBatchItr, runtime, iteratorIndex);
 }
 
 } // namespace gluten
@@ -584,7 +606,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
     inputIters.reserve(itersLen);
     for (int idx = 0; idx < itersLen; idx++) {
       jobject iter = env->GetObjectArrayElement(batchItrArray, idx);
-      auto arrayIter = std::make_unique<JniColumnarBatchIterator>(env, iter, ctx, idx);
+      auto arrayIter = createInputIterator(env, iter, ctx, idx);
       auto resultIter = std::make_shared<ResultIterator>(std::move(arrayIter));
       inputIters.push_back(std::move(resultIter));
     }

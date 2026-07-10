@@ -17,7 +17,13 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
+
 #include <jni.h>
+
+#include "compute/Runtime.h"
+#include "memory/ColumnarBatchIterator.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,3 +35,15 @@ void JNI_OnUnload_Base(JavaVM* vm, void* reserved);
 #ifdef __cplusplus
 }
 #endif
+
+namespace gluten {
+
+using InputIteratorFactory = std::function<std::unique_ptr<
+    ColumnarBatchIterator>(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex)>;
+
+void registerInputIteratorFactory(InputIteratorFactory factory);
+
+std::unique_ptr<ColumnarBatchIterator>
+createInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex);
+
+} // namespace gluten
