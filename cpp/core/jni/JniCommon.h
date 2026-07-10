@@ -25,6 +25,7 @@
 #include "compute/ProtobufUtils.h"
 #include "compute/Runtime.h"
 #include "memory/AllocationListener.h"
+#include "shuffle/ShuffleReader.h"
 #include "shuffle/rss/RssClient.h"
 #include "threads/ThreadInitializer.h"
 #include "utils/Compression.h"
@@ -150,6 +151,8 @@ static T* jniCastOrThrow(jlong handle) {
   return instance;
 }
 namespace gluten {
+
+std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuffleStreamReader);
 
 class JniCommonState {
  public:
