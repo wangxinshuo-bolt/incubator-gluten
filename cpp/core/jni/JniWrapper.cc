@@ -25,6 +25,7 @@
 #include "config/GlutenConfig.h"
 #include "jni/JniCommon.h"
 #include "jni/JniError.h"
+#include "jni/JniWrapper.h"
 
 #include <arrow/c/bridge.h>
 #include <google/protobuf/stubs/common.h>
