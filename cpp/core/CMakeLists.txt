@@ -183,8 +183,12 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
   endif()
 endif()
 
-find_arrow_lib(${ARROW_LIB_NAME})
-find_arrow_lib(${ARROW_BUNDLED_DEPS})
+if(COMMAND find_arrow_lib)
+  find_arrow_lib(${ARROW_LIB_NAME})
+  find_arrow_lib(${ARROW_BUNDLED_DEPS})
+else()
+  find_package(Arrow CONFIG REQUIRED)
+endif()
 
 if(ENABLE_QAT)
   include(BuildQATzip)
@@ -244,13 +248,35 @@ else()
   set(LIBHDFS3_DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
-target_link_libraries(gluten PUBLIC Arrow::arrow
-                                    Arrow::arrow_bundled_dependencies)
-target_link_libraries(gluten PRIVATE google::glog)
+set(GLUTEN_ARROW_LIBRARIES)
+if(TARGET Arrow::arrow)
+  list(APPEND GLUTEN_ARROW_LIBRARIES Arrow::arrow)
+elseif(TARGET arrow::arrow)
+  list(APPEND GLUTEN_ARROW_LIBRARIES arrow::arrow)
+else()
+  message(FATAL_ERROR "Arrow target not found")
+endif()
+
+if(TARGET Arrow::arrow_bundled_dependencies)
+  list(APPEND GLUTEN_ARROW_LIBRARIES Arrow::arrow_bundled_dependencies)
+elseif(TARGET arrow::arrow_bundled_dependencies)
+  list(APPEND GLUTEN_ARROW_LIBRARIES arrow::arrow_bundled_dependencies)
+endif()
+
+target_link_libraries(gluten PUBLIC ${GLUTEN_ARROW_LIBRARIES})
+if(TARGET google::glog)
+  target_link_libraries(gluten PRIVATE google::glog)
+elseif(TARGET glog::glog)
+  target_link_libraries(gluten PRIVATE glog::glog)
+else()
+  message(FATAL_ERROR "glog target not found")
+endif()
 
 install(TARGETS gluten DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/libhdfs.so
-        DESTINATION ${LIBHDFS3_DESTINATION})
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/resources/libhdfs.so)
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/libhdfs.so
+          DESTINATION ${LIBHDFS3_DESTINATION})
+endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
   add_custom_command(
