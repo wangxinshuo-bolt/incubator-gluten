@@ -22,7 +22,7 @@ public class NativeMemoryManagerJniWrapper {
   private NativeMemoryManagerJniWrapper() {}
 
   public static native long create(
-      String backendType, ReservationListener listener, byte[] sessionConf);
+      String backendType, ReservationListener listener, byte[] sessionConf, String name);
 
   public static native byte[] collectUsage(long handle);
 

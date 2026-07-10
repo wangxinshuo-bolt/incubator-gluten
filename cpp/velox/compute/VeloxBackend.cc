@@ -78,8 +78,11 @@ using namespace facebook;
 namespace gluten {
 
 namespace {
-MemoryManager* veloxMemoryManagerFactory(const std::string& kind, std::unique_ptr<AllocationListener> listener) {
-  return new VeloxMemoryManager(kind, std::move(listener), *VeloxBackend::get()->getBackendConf());
+MemoryManager* veloxMemoryManagerFactory(
+    const std::string& kind,
+    std::unique_ptr<AllocationListener> listener,
+    const MemoryManagerOptions& options) {
+  return new VeloxMemoryManager(kind, std::move(listener), *VeloxBackend::get()->getBackendConf(), options.name);
 }
 
 void veloxMemoryManagerReleaser(MemoryManager* memoryManager) {
