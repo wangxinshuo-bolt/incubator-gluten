@@ -28,7 +28,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class JniLibLoader {
@@ -37,7 +39,7 @@ public class JniLibLoader {
   private static final Set<String> LOADED_LIBRARY_PATHS = new HashSet<>();
 
   private final String workDir;
-  private final Set<String> loadedLibraries = new HashSet<>();
+  private final Map<String, String> loadedLibraries = new HashMap<>();
 
   JniLibLoader(String workDir) {
     this.workDir = workDir;
@@ -66,7 +68,7 @@ public class JniLibLoader {
     }
   }
 
-  private static void loadFromPath0(String libPath) {
+  private static synchronized String loadFromPath0(String libPath) {
     libPath = toRealPath(libPath);
     if (LOADED_LIBRARY_PATHS.contains(libPath)) {
       LOG.debug("Library in path {} has already been loaded, skipping", libPath);
@@ -75,26 +77,39 @@ public class JniLibLoader {
       LOADED_LIBRARY_PATHS.add(libPath);
       LOG.info("Library {} has been loaded using path-loading method", libPath);
     }
+    return libPath;
   }
 
-  public static synchronized void loadFromPath(String libPath) {
+  public static void loadFromPath(String libPath) {
+    loadFromPathAndGetPath(libPath);
+  }
+
+  /** Loads a library from the filesystem and returns its canonical path. */
+  public static String loadFromPathAndGetPath(String libPath) {
     final File file = new File(libPath);
     if (!file.isFile() || !file.exists()) {
       throw new GlutenException("library at path: " + libPath + " is not a file or does not exist");
     }
-    loadFromPath0(file.getAbsolutePath());
+    return loadFromPath0(file.getAbsolutePath());
   }
 
   public synchronized void load(String libPath) {
+    loadAndGetPath(libPath);
+  }
+
+  /** Extracts and loads a classpath library, then returns its canonical filesystem path. */
+  public synchronized String loadAndGetPath(String libPath) {
     try {
-      if (loadedLibraries.contains(libPath)) {
+      String loadedPath = loadedLibraries.get(libPath);
+      if (loadedPath != null) {
         LOG.debug("Library {} has already been loaded, skipping", libPath);
-        return;
+        return loadedPath;
       }
       File file = moveToWorkDir(workDir, libPath);
-      loadWithLink(file.getAbsolutePath(), null);
-      loadedLibraries.add(libPath);
+      loadedPath = loadWithLink(file.getAbsolutePath(), null);
+      loadedLibraries.put(libPath, loadedPath);
       LOG.info("Successfully loaded library {}", libPath);
+      return loadedPath;
     } catch (IOException e) {
       throw new GlutenException(e);
     }
@@ -106,15 +121,25 @@ public class JniLibLoader {
    * {@code libPath} was already loaded by this instance.
    */
   public synchronized void loadAndCreateLink(String libPath, String linkName) {
+    loadAndCreateLinkAndGetPath(libPath, linkName);
+  }
+
+  /**
+   * Extracts and loads a classpath library, creates the requested link, and returns the canonical
+   * path of the loaded file.
+   */
+  public synchronized String loadAndCreateLinkAndGetPath(String libPath, String linkName) {
     try {
-      if (loadedLibraries.contains(libPath)) {
+      String loadedPath = loadedLibraries.get(libPath);
+      if (loadedPath != null) {
         LOG.debug("Library {} has already been loaded, skipping", libPath);
-        return;
+        return loadedPath;
       }
       File file = moveToWorkDir(workDir, libPath);
-      loadWithLink(file.getAbsolutePath(), linkName);
-      loadedLibraries.add(libPath);
+      loadedPath = loadWithLink(file.getAbsolutePath(), linkName);
+      loadedLibraries.put(libPath, loadedPath);
       LOG.info("Successfully loaded library {}", libPath);
+      return loadedPath;
     } catch (IOException e) {
       throw new GlutenException(e);
     }
@@ -143,18 +168,19 @@ public class JniLibLoader {
     return temp;
   }
 
-  private void loadWithLink(String libPath, String linkName) throws IOException {
-    loadFromPath0(libPath);
-    LOG.info("Library {} has been loaded", libPath);
+  private String loadWithLink(String libPath, String linkName) throws IOException {
+    String loadedPath = loadFromPath0(libPath);
+    LOG.info("Library {} has been loaded", loadedPath);
     if (linkName != null) {
-      Path target = Paths.get(libPath);
+      Path target = Paths.get(loadedPath);
       Path link = Paths.get(workDir, linkName);
       if (Files.exists(link)) {
-        LOG.info("Symbolic link already exists for library {}, deleting", libPath);
+        LOG.info("Symbolic link already exists for library {}, deleting", loadedPath);
         Files.delete(link);
       }
       Files.createSymbolicLink(link, target);
-      LOG.info("Symbolic link {} created for library {}", link, libPath);
+      LOG.info("Symbolic link {} created for library {}", link, loadedPath);
     }
+    return loadedPath;
   }
 }
