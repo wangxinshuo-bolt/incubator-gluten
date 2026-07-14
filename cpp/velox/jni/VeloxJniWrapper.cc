@@ -32,6 +32,7 @@
 #include "compute/VeloxRuntime.h"
 #include "config/GlutenConfig.h"
 #include "config/VeloxConfig.h"
+#include "jni/BackendJniRegistry.h"
 #include "jni/JniError.h"
 #include "jni/JniFileSystem.h"
 #include "jni/JniHashTable.h"
@@ -89,10 +90,14 @@ auto makePartitionIdGenerator(
 }
 } // namespace
 
+namespace {
+
 std::unique_ptr<gluten::ColumnarBatchIterator>
-gluten::createInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex) {
+createVeloxInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex) {
   return makeJniColumnarBatchIterator(env, jColumnarBatchItr, runtime);
 }
+
+} // namespace
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,6 +125,15 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
   batchWriteMetricsClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/metrics/BatchWriteMetrics;");
   batchWriteMetricsConstructor = getMethodIdOrError(env, batchWriteMetricsClass, "<init>", "(JIJJ)V");
 
+  try {
+    registerInputIteratorFactory(kVeloxBackendKind, createVeloxInputIterator);
+  } catch (const std::exception& error) {
+    LOG(ERROR) << "Failed to register the Velox backend input iterator factory: " << error.what();
+    return JNI_ERR;
+  } catch (...) {
+    LOG(ERROR) << "Failed to register the Velox backend input iterator factory: unknown exception";
+    return JNI_ERR;
+  }
   DLOG(INFO) << "Loaded Velox backend.";
 
   return jniVersion;

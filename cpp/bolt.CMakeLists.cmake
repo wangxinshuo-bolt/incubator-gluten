@@ -63,8 +63,12 @@ option(ENABLE_ABFS "Enable ABFS" OFF)
 option(ENABLE_GPU "Enable GPU" OFF)
 option(ENABLE_ENHANCED_FEATURES "Enable enhanced features" OFF)
 
-# TODO integrage with conan options
-set(BUILD_STATIC ON)
+# The static Bolt archive is only an implementation detail of native tests and
+# benchmarks. Runtime packaging always uses the shared backend library.
+set(BUILD_STATIC OFF)
+if(BUILD_TESTS OR BUILD_BENCHMARKS)
+  set(BUILD_STATIC ON)
+endif()
 
 set(root_directory ${PROJECT_BINARY_DIR})
 get_filename_component(GLUTEN_HOME ${CMAKE_SOURCE_DIR} DIRECTORY)
@@ -232,11 +236,64 @@ if(ENABLE_ENHANCED_FEATURES)
 endif()
 
 # Subdirectories
-set(GLUTEN_CORE_LIBRARY_TYPE STATIC)
-set(GLUTEN_CORE_RENAME_JNI_ENTRYPOINTS ON)
 add_subdirectory(core)
 
 if(BUILD_BOLT)
   add_subdirectory(bolt)
   add_subdirectory(bolt/nativeLoader)
+
+  if(NOT TARGET gluten OR NOT TARGET bolt_backend OR NOT TARGET glutenlibloader)
+    message(FATAL_ERROR
+            "Bolt native packaging requires gluten, bolt_backend, and glutenlibloader targets")
+  endif()
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(BOLT_PACKAGE_PLATFORM "linux")
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(BOLT_PACKAGE_PLATFORM "darwin")
+  else()
+    message(FATAL_ERROR "Unsupported Bolt package platform: ${CMAKE_SYSTEM_NAME}")
+  endif()
+
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+      set(BOLT_PACKAGE_ARCH "x86_64")
+    else()
+      set(BOLT_PACKAGE_ARCH "amd64")
+    endif()
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(BOLT_PACKAGE_ARCH "aarch64")
+  else()
+    message(FATAL_ERROR
+            "Unsupported Bolt package architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+  endif()
+
+  set(BOLT_NATIVE_PACKAGE_DIR
+      "${CMAKE_SOURCE_DIR}/build/package/bolt/${BOLT_PACKAGE_PLATFORM}/${BOLT_PACKAGE_ARCH}")
+  set(BOLT_LOADER_LIBRARY_FILE
+      "${CMAKE_SHARED_LIBRARY_PREFIX}glutenlibloader${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(BOLT_CORE_LIBRARY_FILE
+      "${CMAKE_SHARED_LIBRARY_PREFIX}gluten${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(BOLT_BACKEND_LIBRARY_FILE
+      "${CMAKE_SHARED_LIBRARY_PREFIX}bolt_backend${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(BOLT_NATIVE_MANIFEST
+      "${CMAKE_BINARY_DIR}/bolt-native-libraries.properties")
+  configure_file("${CMAKE_SOURCE_DIR}/bolt/native-package.properties.in"
+                 "${BOLT_NATIVE_MANIFEST}" @ONLY)
+  add_custom_target(
+    package_bolt_native ALL
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${BOLT_NATIVE_PACKAGE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${BOLT_NATIVE_PACKAGE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:gluten>"
+            "${BOLT_NATIVE_PACKAGE_DIR}/"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:bolt_backend>"
+            "${BOLT_NATIVE_PACKAGE_DIR}/"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:glutenlibloader>"
+            "${BOLT_NATIVE_PACKAGE_DIR}/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${BOLT_NATIVE_MANIFEST}"
+            "${BOLT_NATIVE_PACKAGE_DIR}/"
+    DEPENDS gluten bolt_backend glutenlibloader
+    COMMENT
+      "Staging Bolt native libraries in ${BOLT_NATIVE_PACKAGE_DIR}"
+    VERBATIM)
 endif()

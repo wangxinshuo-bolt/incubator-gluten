@@ -122,6 +122,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
     compute/ProtobufUtils.cc
     compute/ResultIterator.cc
     config/GlutenConfig.cc
+    jni/BackendJniRegistry.cc
     jni/JniWrapper.cc
     memory/AllocationListener.cc
     memory/MemoryAllocator.cc
@@ -154,11 +155,14 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
     jni/TaskContextJniWrapper.cc)
 
 file(MAKE_DIRECTORY ${root_directory}/releases)
-if(NOT DEFINED GLUTEN_CORE_LIBRARY_TYPE)
-  set(GLUTEN_CORE_LIBRARY_TYPE SHARED)
-endif()
-add_library(gluten ${GLUTEN_CORE_LIBRARY_TYPE} ${SPARK_COLUMNAR_PLUGIN_SRCS})
+add_library(gluten SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS})
 add_dependencies(gluten jni_proto)
+
+if(APPLE)
+  set(GLUTEN_RELATIVE_LIBRARY_RPATH "@loader_path")
+else()
+  set(GLUTEN_RELATIVE_LIBRARY_RPATH "$ORIGIN")
+endif()
 
 # Hide symbols of some static dependencies. Otherwise, if such dependencies are
 # already statically linked to libvelox.so, a runtime error will be reported:
@@ -227,17 +231,16 @@ target_include_directories(
   gluten
   PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${JNI_INCLUDE_DIRS}
          ${CMAKE_CURRENT_SOURCE_DIR} ${PROTO_OUTPUT_DIR} ${PROTOBUF_INCLUDE})
-set_target_properties(gluten PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                        ${root_directory}/releases)
+set_target_properties(
+  gluten
+  PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases
+             BUILD_RPATH "${GLUTEN_RELATIVE_LIBRARY_RPATH}"
+             BUILD_WITH_INSTALL_RPATH TRUE
+             INSTALL_RPATH "${GLUTEN_RELATIVE_LIBRARY_RPATH}")
 
 if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
-
-if(GLUTEN_CORE_RENAME_JNI_ENTRYPOINTS)
-  target_compile_definitions(gluten PRIVATE JNI_OnLoad=JNI_OnLoad_Base JNI_OnUnload=JNI_OnUnload_Base)
-endif()
-
 
 if(DEFINED ENV{HADOOP_HOME})
   set(LIBHDFS3_DESTINATION $ENV{HADOOP_HOME}/lib/native)

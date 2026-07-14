@@ -64,15 +64,12 @@ class JniErrorState {
   jclass illegalAccessExceptionClass_ = nullptr;
   jclass illegalArgumentExceptionClass_ = nullptr;
   jclass glutenExceptionClass_ = nullptr;
-  JavaVM* vm_;
+  JavaVM* vm_{nullptr};
   bool initialized_{false};
   bool closed_{false};
   std::mutex mtx_;
 };
 
-inline JniErrorState* getJniErrorState() {
-  static JniErrorState jniErrorState;
-  return &jniErrorState;
-}
+JniErrorState* getJniErrorState();
 
 } // namespace gluten

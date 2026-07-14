@@ -18,22 +18,25 @@ if (ENABLE_BOLT)
 cmake_minimum_required(VERSION 3.25)
 
 find_package(JNI REQUIRED)
-find_package(glog CONFIG REQUIRED)
 
 add_library(glutenlibloader SHARED JniNativeLibraryLoader.cc)
-target_include_directories(glutenlibloader PUBLIC ${JNI_INCLUDE_DIRS})
+target_include_directories(glutenlibloader PRIVATE ${JNI_INCLUDE_DIRS})
+if(CMAKE_DL_LIBS)
+  target_link_libraries(glutenlibloader PRIVATE ${CMAKE_DL_LIBS})
+endif()
 
-target_link_libraries(glutenlibloader PRIVATE glog::glog)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_compile_definitions(glutenlibloader PRIVATE _GNU_SOURCE)
+endif()
 
-# add arch suffix (.amd64 or .aarch64)
-# Aligned with java ``` System.getProperty("os.arch") ```
-IF((${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86_64") OR (${CMAKE_SYSTEM_PROCESSOR} MATCHES "AMD64"))
-  set(ARCH "amd64")
-ELSEIF(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
-  set(ARCH "aarch64")
-ELSE()
-  message(FATAL_ERROR "Unsupported System Architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-ENDIF()
+if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  target_link_options(
+    glutenlibloader
+    PRIVATE -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map)
+  set_target_properties(
+    glutenlibloader
+    PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/symbols.map)
+endif()
 
 set_target_properties(glutenlibloader PROPERTIES SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
 

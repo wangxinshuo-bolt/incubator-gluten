@@ -23,6 +23,7 @@
 
 #include "compute/Runtime.h"
 #include "config/GlutenConfig.h"
+#include "jni/BackendJniRegistry.h"
 #include "jni/JniCommon.h"
 #include "jni/JniError.h"
 #include "jni/JniWrapper.h"
@@ -290,80 +291,159 @@ std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuf
 
 } // namespace gluten
 
+namespace {
+
+void deleteGlobalRefIfPresent(JNIEnv* env, jclass& ref) {
+  if (ref != nullptr) {
+    env->DeleteGlobalRef(ref);
+    ref = nullptr;
+  }
+}
+
+void releaseCoreJniGlobalRefs(JNIEnv* env) {
+  deleteGlobalRefIfPresent(env, jniByteInputStreamClass);
+  deleteGlobalRefIfPresent(env, splitResultClass);
+  deleteGlobalRefIfPresent(env, metricsBuilderClass);
+  deleteGlobalRefIfPresent(env, nativeColumnarToRowInfoClass);
+  deleteGlobalRefIfPresent(env, byteArrayClass);
+  deleteGlobalRefIfPresent(env, jniUnsafeByteBufferClass);
+  deleteGlobalRefIfPresent(env, shuffleReaderMetricsClass);
+  deleteGlobalRefIfPresent(env, shuffleStreamReaderClass);
+}
+
+void clearPendingJavaException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+  }
+}
+
+} // namespace
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  if (vm == nullptr) {
+    return JNI_ERR;
+  }
+  JNIEnv* env = nullptr;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
   }
-  getJniCommonState()->ensureInitialized(env);
-  getJniErrorState()->ensureInitialized(env);
 
-  MemoryManager::registerFactory(kInternalBackendKind, internalMemoryManagerFactory, internalMemoryManagerReleaser);
-  ThreadManager::registerFactory(kInternalBackendKind, internalThreadManagerFactory, internalThreadManagerReleaser);
-  Runtime::registerFactory(kInternalBackendKind, internalRuntimeFactory, internalRuntimeReleaser);
+  bool commonStateInitialized = false;
+  bool errorStateInitialized = false;
+  try {
+    getJniCommonState()->ensureInitialized(env);
+    commonStateInitialized = true;
+    getJniErrorState()->ensureInitialized(env);
+    errorStateInitialized = true;
 
-  byteArrayClass = createGlobalClassReferenceOrError(env, "[B");
+    byteArrayClass = createGlobalClassReferenceOrError(env, "[B");
 
-  jniUnsafeByteBufferClass =
-      createGlobalClassReferenceOrError(env, "Lorg/apache/spark/sql/execution/unsafe/JniUnsafeByteBuffer;");
-  jniUnsafeByteBufferAllocate = env->GetStaticMethodID(
-      jniUnsafeByteBufferClass, "allocate", "(J)Lorg/apache/spark/sql/execution/unsafe/JniUnsafeByteBuffer;");
-  jniUnsafeByteBufferAddress = env->GetMethodID(jniUnsafeByteBufferClass, "address", "()J");
-  jniUnsafeByteBufferSize = env->GetMethodID(jniUnsafeByteBufferClass, "size", "()J");
+    jniUnsafeByteBufferClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/spark/sql/execution/unsafe/JniUnsafeByteBuffer;");
+    jniUnsafeByteBufferAllocate = getStaticMethodIdOrError(
+        env, jniUnsafeByteBufferClass, "allocate", "(J)Lorg/apache/spark/sql/execution/unsafe/JniUnsafeByteBuffer;");
+    jniUnsafeByteBufferAddress = getMethodIdOrError(env, jniUnsafeByteBufferClass, "address", "()J");
+    jniUnsafeByteBufferSize = getMethodIdOrError(env, jniUnsafeByteBufferClass, "size", "()J");
 
-  jniByteInputStreamClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/JniByteInputStream;");
-  jniByteInputStreamRead = getMethodIdOrError(env, jniByteInputStreamClass, "read", "(JJ)J");
-  jniByteInputStreamTell = getMethodIdOrError(env, jniByteInputStreamClass, "tell", "()J");
-  jniByteInputStreamClose = getMethodIdOrError(env, jniByteInputStreamClass, "close", "()V");
+    jniByteInputStreamClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/JniByteInputStream;");
+    jniByteInputStreamRead = getMethodIdOrError(env, jniByteInputStreamClass, "read", "(JJ)J");
+    jniByteInputStreamTell = getMethodIdOrError(env, jniByteInputStreamClass, "tell", "()J");
+    jniByteInputStreamClose = getMethodIdOrError(env, jniByteInputStreamClass, "close", "()V");
 
-  splitResultClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/GlutenSplitResult;");
-  splitResultConstructor = getMethodIdOrError(env, splitResultClass, "<init>", "(JJJJJJJJJJDJ[J[J[J)V");
+    splitResultClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/GlutenSplitResult;");
+    splitResultConstructor = getMethodIdOrError(env, splitResultClass, "<init>", "(JJJJJJJJJJDJ[J[J[J)V");
 
-  metricsBuilderClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/metrics/Metrics;");
+    metricsBuilderClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/metrics/Metrics;");
+    metricsBuilderConstructor = getMethodIdOrError(
+        env,
+        metricsBuilderClass,
+        "<init>",
+        "([J[J[J[J[J[J[J[J[J[JJ[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[JLjava/lang/String;)V");
 
-  metricsBuilderConstructor = getMethodIdOrError(
-      env,
-      metricsBuilderClass,
-      "<init>",
-      "([J[J[J[J[J[J[J[J[J[JJ[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[J[JLjava/lang/String;)V");
+    nativeColumnarToRowInfoClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/NativeColumnarToRowInfo;");
+    nativeColumnarToRowInfoConstructor = getMethodIdOrError(env, nativeColumnarToRowInfoClass, "<init>", "([I[IJ)V");
 
-  nativeColumnarToRowInfoClass =
-      createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/NativeColumnarToRowInfo;");
-  nativeColumnarToRowInfoConstructor = getMethodIdOrError(env, nativeColumnarToRowInfoClass, "<init>", "([I[IJ)V");
+    shuffleReaderMetricsClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/ShuffleReaderMetrics;");
+    shuffleReaderMetricsSetDecompressTime =
+        getMethodIdOrError(env, shuffleReaderMetricsClass, "setDecompressTime", "(J)V");
+    shuffleReaderMetricsSetDeserializeTime =
+        getMethodIdOrError(env, shuffleReaderMetricsClass, "setDeserializeTime", "(J)V");
 
-  shuffleReaderMetricsClass =
-      createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/ShuffleReaderMetrics;");
-  shuffleReaderMetricsSetDecompressTime =
-      getMethodIdOrError(env, shuffleReaderMetricsClass, "setDecompressTime", "(J)V");
-  shuffleReaderMetricsSetDeserializeTime =
-      getMethodIdOrError(env, shuffleReaderMetricsClass, "setDeserializeTime", "(J)V");
+    shuffleStreamReaderClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/ShuffleStreamReader;");
+    shuffleStreamReaderNextStream = getMethodIdOrError(
+        env, shuffleStreamReaderClass, "nextStream", "()Lorg/apache/gluten/vectorized/JniByteInputStream;");
 
-  shuffleStreamReaderClass =
-      createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/vectorized/ShuffleStreamReader;");
-  shuffleStreamReaderNextStream = getMethodIdOrError(
-      env, shuffleStreamReaderClass, "nextStream", "()Lorg/apache/gluten/vectorized/JniByteInputStream;");
-
-  return jniVersion;
+    // Publish factories only after all Core JNI state is ready.
+    MemoryManager::registerFactory(kInternalBackendKind, internalMemoryManagerFactory, internalMemoryManagerReleaser);
+    ThreadManager::registerFactory(kInternalBackendKind, internalThreadManagerFactory, internalThreadManagerReleaser);
+    Runtime::registerFactory(kInternalBackendKind, internalRuntimeFactory, internalRuntimeReleaser);
+    return jniVersion;
+  } catch (const std::exception& e) {
+    clearPendingJavaException(env);
+    releaseCoreJniGlobalRefs(env);
+    if (errorStateInitialized) {
+      try {
+        getJniErrorState()->close();
+      } catch (...) {
+      }
+    }
+    if (commonStateInitialized) {
+      try {
+        getJniCommonState()->close();
+      } catch (...) {
+      }
+    }
+    LOG(ERROR) << "Failed to initialize Core JNI: " << e.what();
+    return JNI_ERR;
+  } catch (...) {
+    clearPendingJavaException(env);
+    releaseCoreJniGlobalRefs(env);
+    if (errorStateInitialized) {
+      try {
+        getJniErrorState()->close();
+      } catch (...) {
+      }
+    }
+    if (commonStateInitialized) {
+      try {
+        getJniCommonState()->close();
+      } catch (...) {
+      }
+    }
+    LOG(ERROR) << "Failed to initialize Core JNI due to an unknown error";
+    return JNI_ERR;
+  }
 }
 
-void JNI_OnUnload(JavaVM* vm, void* reserved) {
-  JNIEnv* env;
-  vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
-  env->DeleteGlobalRef(jniByteInputStreamClass);
-  env->DeleteGlobalRef(splitResultClass);
-  env->DeleteGlobalRef(nativeColumnarToRowInfoClass);
-  env->DeleteGlobalRef(byteArrayClass);
-  env->DeleteGlobalRef(jniUnsafeByteBufferClass);
-  env->DeleteGlobalRef(shuffleReaderMetricsClass);
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
+  if (vm == nullptr) {
+    return;
+  }
+  JNIEnv* env = nullptr;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
+    return;
+  }
 
-  getJniErrorState()->close();
-  getJniCommonState()->close();
-
-  google::protobuf::ShutdownProtobufLibrary();
+  try {
+    releaseCoreJniGlobalRefs(env);
+    getJniErrorState()->close();
+    getJniCommonState()->close();
+    google::protobuf::ShutdownProtobufLibrary();
+  } catch (const std::exception& e) {
+    clearPendingJavaException(env);
+    LOG(ERROR) << "Failed to unload Core JNI cleanly: " << e.what();
+  } catch (...) {
+    clearPendingJavaException(env);
+    LOG(ERROR) << "Failed to unload Core JNI cleanly due to an unknown error";
+  }
 }
 
 JNIEXPORT jlong JNICALL Java_org_apache_gluten_runtime_RuntimeJniWrapper_createRuntime( // NOLINT
@@ -588,7 +668,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
     inputIters.reserve(itersLen);
     for (int idx = 0; idx < itersLen; idx++) {
       jobject iter = env->GetObjectArrayElement(batchItrArray, idx);
-      auto arrayIter = createInputIterator(env, iter, ctx, idx);
+      auto arrayIter = createBackendInputIterator(env, iter, ctx, idx);
       auto resultIter = std::make_shared<ResultIterator>(std::move(arrayIter));
       inputIters.push_back(std::move(resultIter));
     }

@@ -13,8 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_test_case(round_robin_partitioner_test SOURCES RoundRobinPartitionerTest.cc)
-add_test_case(object_store_test SOURCES ObjectStoreTest.cc)
-add_test_case(memory_allocator_test SOURCES MemoryAllocatorTest.cc)
-add_test_case(ffor_codec_test SOURCES FForCodecTest.cc)
-add_test_case(backend_jni_registry_test SOURCES BackendJniRegistryTest.cc)
+format.version=1
+platform=@BOLT_PACKAGE_PLATFORM@
+arch=@BOLT_PACKAGE_ARCH@
+loader.file=@BOLT_LOADER_LIBRARY_FILE@
+loader.soname=@BOLT_LOADER_LIBRARY_FILE@
+loader.arch=@BOLT_PACKAGE_ARCH@
+core.file=@BOLT_CORE_LIBRARY_FILE@
+core.soname=@BOLT_CORE_LIBRARY_FILE@
+core.arch=@BOLT_PACKAGE_ARCH@
+backend.file=@BOLT_BACKEND_LIBRARY_FILE@
+backend.soname=@BOLT_BACKEND_LIBRARY_FILE@
+backend.arch=@BOLT_PACKAGE_ARCH@
+# Non-system DT_NEEDED dependencies continue to use Gluten's existing
+# third-party companion Jar and are validated separately from this main-DSO manifest.
+dependency.delivery=thirdparty-companion-jar

@@ -14,17 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include <jni.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <cstdint>
+#include <memory>
+#include <string>
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved);
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved);
+namespace gluten {
 
-#ifdef __cplusplus
-}
-#endif
+class ColumnarBatchIterator;
+class Runtime;
+
+using InputIteratorFactory = std::unique_ptr<ColumnarBatchIterator> (*)(JNIEnv*, jobject, Runtime*, int32_t);
+
+/// Registers a backend-owned input iterator factory for the lifetime of the process.
+/// Backend libraries must remain loaded after registering their factory.
+void registerInputIteratorFactory(const std::string& backendKind, InputIteratorFactory factory);
+
+/// Creates an input iterator using the factory registered for runtime->kind().
+std::unique_ptr<ColumnarBatchIterator>
+createBackendInputIterator(JNIEnv* env, jobject jColumnarBatchIterator, Runtime* runtime, int32_t iteratorIndex);
+
+} // namespace gluten

@@ -37,16 +37,26 @@ void gluten::initBoltJniUDF(JNIEnv* env) {
     throw gluten::GlutenException("Unable to get JavaVM instance");
   }
 
-  // classes
-  udfResolverClass = createGlobalClassReferenceOrError(env, kUdfResolverClassPath.c_str());
+  try {
+    // classes
+    udfResolverClass = createGlobalClassReferenceOrError(env, kUdfResolverClassPath.c_str());
 
-  // methods
-  registerUDFMethod = getMethodIdOrError(env, udfResolverClass, "registerUDF", "(Ljava/lang/String;[B[BZZ)V");
-  registerUDAFMethod = getMethodIdOrError(env, udfResolverClass, "registerUDAF", "(Ljava/lang/String;[B[B[BZZ)V");
+    // methods
+    registerUDFMethod = getMethodIdOrError(env, udfResolverClass, "registerUDF", "(Ljava/lang/String;[B[BZZ)V");
+    registerUDAFMethod =
+        getMethodIdOrError(env, udfResolverClass, "registerUDAF", "(Ljava/lang/String;[B[B[BZZ)V");
+  } catch (...) {
+    finalizeBoltJniUDF(env);
+    throw;
+  }
 }
 
 void gluten::finalizeBoltJniUDF(JNIEnv* env) {
-  env->DeleteGlobalRef(udfResolverClass);
+  if (udfResolverClass != nullptr) {
+    env->DeleteGlobalRef(udfResolverClass);
+    udfResolverClass = nullptr;
+  }
+  vm = nullptr;
 }
 
 void gluten::jniRegisterFunctionSignatures(JNIEnv* env) {

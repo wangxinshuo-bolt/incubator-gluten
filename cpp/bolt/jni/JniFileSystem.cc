@@ -402,49 +402,66 @@ void gluten::initBoltJniFileSystem(JNIEnv* env) {
     throw gluten::GlutenException("Unable to get JavaVM instance");
   }
 
-  // classes
-  jniFileSystemClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/fs/JniFilesystem;");
-  jniReadFileClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/fs/JniFilesystem$ReadFile;");
-  jniWriteFileClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/fs/JniFilesystem$WriteFile;");
+  try {
+    // classes
+    jniFileSystemClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/fs/JniFilesystem;");
+    jniReadFileClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/fs/JniFilesystem$ReadFile;");
+    jniWriteFileClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/fs/JniFilesystem$WriteFile;");
 
-  // methods in JniFilesystem
-  jniGetFileSystem =
-      getStaticMethodIdOrError(env, jniFileSystemClass, "getFileSystem", "()Lorg/apache/gluten/fs/JniFilesystem;");
-  jniIsCapableForNewFile = getStaticMethodIdOrError(env, jniFileSystemClass, "isCapableForNewFile", "(J)Z");
-  jniFileSystemOpenFileForRead = getMethodIdOrError(
-      env, jniFileSystemClass, "openFileForRead", "(Ljava/lang/String;)Lorg/apache/gluten/fs/JniFilesystem$ReadFile;");
-  jniFileSystemOpenFileForWrite = getMethodIdOrError(
-      env,
-      jniFileSystemClass,
-      "openFileForWrite",
-      "(Ljava/lang/String;)Lorg/apache/gluten/fs/JniFilesystem$WriteFile;");
-  jniFileSystemRemove = getMethodIdOrError(env, jniFileSystemClass, "remove", "(Ljava/lang/String;)V");
-  jniFileSystemRename =
-      getMethodIdOrError(env, jniFileSystemClass, "rename", "(Ljava/lang/String;Ljava/lang/String;Z)V");
-  jniFileSystemExists = getMethodIdOrError(env, jniFileSystemClass, "exists", "(Ljava/lang/String;)Z");
-  jniFileSystemList = getMethodIdOrError(env, jniFileSystemClass, "list", "(Ljava/lang/String;)[Ljava/lang/String;");
-  jniFileSystemMkdir = getMethodIdOrError(env, jniFileSystemClass, "mkdir", "(Ljava/lang/String;)V");
-  jniFileSystemRmdir = getMethodIdOrError(env, jniFileSystemClass, "rmdir", "(Ljava/lang/String;)V");
+    // methods in JniFilesystem
+    jniGetFileSystem =
+        getStaticMethodIdOrError(env, jniFileSystemClass, "getFileSystem", "()Lorg/apache/gluten/fs/JniFilesystem;");
+    jniIsCapableForNewFile = getStaticMethodIdOrError(env, jniFileSystemClass, "isCapableForNewFile", "(J)Z");
+    jniFileSystemOpenFileForRead = getMethodIdOrError(
+        env,
+        jniFileSystemClass,
+        "openFileForRead",
+        "(Ljava/lang/String;)Lorg/apache/gluten/fs/JniFilesystem$ReadFile;");
+    jniFileSystemOpenFileForWrite = getMethodIdOrError(
+        env,
+        jniFileSystemClass,
+        "openFileForWrite",
+        "(Ljava/lang/String;)Lorg/apache/gluten/fs/JniFilesystem$WriteFile;");
+    jniFileSystemRemove = getMethodIdOrError(env, jniFileSystemClass, "remove", "(Ljava/lang/String;)V");
+    jniFileSystemRename =
+        getMethodIdOrError(env, jniFileSystemClass, "rename", "(Ljava/lang/String;Ljava/lang/String;Z)V");
+    jniFileSystemExists = getMethodIdOrError(env, jniFileSystemClass, "exists", "(Ljava/lang/String;)Z");
+    jniFileSystemList = getMethodIdOrError(env, jniFileSystemClass, "list", "(Ljava/lang/String;)[Ljava/lang/String;");
+    jniFileSystemMkdir = getMethodIdOrError(env, jniFileSystemClass, "mkdir", "(Ljava/lang/String;)V");
+    jniFileSystemRmdir = getMethodIdOrError(env, jniFileSystemClass, "rmdir", "(Ljava/lang/String;)V");
 
-  // methods in JniFilesystem$ReadFile
-  jniReadFilePread = getMethodIdOrError(env, jniReadFileClass, "pread", "(JJJ)V");
-  jniReadFileShouldCoalesce = getMethodIdOrError(env, jniReadFileClass, "shouldCoalesce", "()Z");
-  jniReadFileSize = getMethodIdOrError(env, jniReadFileClass, "size", "()J");
-  jniReadFileMemoryUsage = getMethodIdOrError(env, jniReadFileClass, "memoryUsage", "()J");
-  jniReadFileGetNaturalReadSize = getMethodIdOrError(env, jniReadFileClass, "getNaturalReadSize", "()J");
-  jniReadFileClose = getMethodIdOrError(env, jniReadFileClass, "close", "()V");
+    // methods in JniFilesystem$ReadFile
+    jniReadFilePread = getMethodIdOrError(env, jniReadFileClass, "pread", "(JJJ)V");
+    jniReadFileShouldCoalesce = getMethodIdOrError(env, jniReadFileClass, "shouldCoalesce", "()Z");
+    jniReadFileSize = getMethodIdOrError(env, jniReadFileClass, "size", "()J");
+    jniReadFileMemoryUsage = getMethodIdOrError(env, jniReadFileClass, "memoryUsage", "()J");
+    jniReadFileGetNaturalReadSize = getMethodIdOrError(env, jniReadFileClass, "getNaturalReadSize", "()J");
+    jniReadFileClose = getMethodIdOrError(env, jniReadFileClass, "close", "()V");
 
-  // methods in JniFilesystem$WriteFile
-  jniWriteFileAppend = getMethodIdOrError(env, jniWriteFileClass, "append", "(JJ)V");
-  jniWriteFileFlush = getMethodIdOrError(env, jniWriteFileClass, "flush", "()V");
-  jniWriteFileClose = getMethodIdOrError(env, jniWriteFileClass, "close", "()V");
-  jniWriteFileSize = getMethodIdOrError(env, jniWriteFileClass, "size", "()J");
+    // methods in JniFilesystem$WriteFile
+    jniWriteFileAppend = getMethodIdOrError(env, jniWriteFileClass, "append", "(JJ)V");
+    jniWriteFileFlush = getMethodIdOrError(env, jniWriteFileClass, "flush", "()V");
+    jniWriteFileClose = getMethodIdOrError(env, jniWriteFileClass, "close", "()V");
+    jniWriteFileSize = getMethodIdOrError(env, jniWriteFileClass, "size", "()J");
+  } catch (...) {
+    finalizeBoltJniFileSystem(env);
+    throw;
+  }
 }
 
 void gluten::finalizeBoltJniFileSystem(JNIEnv* env) {
-  env->DeleteGlobalRef(jniWriteFileClass);
-  env->DeleteGlobalRef(jniReadFileClass);
-  env->DeleteGlobalRef(jniFileSystemClass);
+  if (jniWriteFileClass != nullptr) {
+    env->DeleteGlobalRef(jniWriteFileClass);
+    jniWriteFileClass = nullptr;
+  }
+  if (jniReadFileClass != nullptr) {
+    env->DeleteGlobalRef(jniReadFileClass);
+    jniReadFileClass = nullptr;
+  }
+  if (jniFileSystemClass != nullptr) {
+    env->DeleteGlobalRef(jniFileSystemClass);
+    jniFileSystemClass = nullptr;
+  }
 
   vm = nullptr;
 }
