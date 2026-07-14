@@ -122,6 +122,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
     compute/ProtobufUtils.cc
     compute/ResultIterator.cc
     config/GlutenConfig.cc
+    jni/BackendJniRegistry.cc
     jni/JniWrapper.cc
     memory/AllocationListener.cc
     memory/MemoryAllocator.cc

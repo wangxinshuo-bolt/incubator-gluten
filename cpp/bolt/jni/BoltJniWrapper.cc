@@ -32,6 +32,7 @@
 #include "compute/BoltRuntime.h"
 #include "compute/Runtime.h"
 #include "config/GlutenConfig.h"
+#include "jni/BackendJniRegistry.h"
 #include "jni/JniError.h"
 #include "jni/JniFileSystem.h"
 #include "jni/JniWrapper.h"
@@ -130,6 +131,7 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
   splitResultClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/shuffle/BoltSplitResult;");
   splitResultConstructor = getMethodIdOrError(env, splitResultClass, "<init>", "(JJJJJJJJJJJJJJJJJ[J[J)V");
 
+  registerInputIteratorFactory(kBoltBackendKind, &createBoltInputIterator);
   DLOG(INFO) << "Loaded Bolt backend.";
 
   return jniVersion;

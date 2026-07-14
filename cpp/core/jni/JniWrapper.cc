@@ -23,6 +23,7 @@
 
 #include "compute/Runtime.h"
 #include "config/GlutenConfig.h"
+#include "jni/BackendJniRegistry.h"
 #include "jni/JniCommon.h"
 #include "jni/JniError.h"
 #include "jni/JniWrapper.h"
@@ -588,7 +589,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
     inputIters.reserve(itersLen);
     for (int idx = 0; idx < itersLen; idx++) {
       jobject iter = env->GetObjectArrayElement(batchItrArray, idx);
-      auto arrayIter = createInputIterator(env, iter, ctx, idx);
+      auto arrayIter = createBackendInputIterator(env, iter, ctx, idx);
       auto resultIter = std::make_shared<ResultIterator>(std::move(arrayIter));
       inputIters.push_back(std::move(resultIter));
     }
