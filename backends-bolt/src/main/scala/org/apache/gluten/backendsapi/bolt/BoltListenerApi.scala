@@ -46,7 +46,8 @@ import org.apache.spark.sql.internal.{GlutenConfigUtil, StaticSQLConf}
 import org.apache.spark.sql.internal.SparkConfigUtil._
 import org.apache.spark.util.{SparkDirectoryUtil, SparkResourceUtil, SparkShutdownManagerUtil}
 
-import java.util.UUID
+import java.io.{File, FileInputStream}
+import java.util.{Properties, UUID}
 
 class BoltListenerApi extends ListenerApi with Logging {
   import BoltListenerApi._
@@ -250,6 +251,7 @@ class BoltListenerApi extends ListenerApi with Logging {
 }
 
 object BoltListenerApi {
+  private[bolt] case class NativeLibraries(loader: File, core: File, backend: File)
 
   sealed private[bolt] trait InitializationState
   private[bolt] case object UNINITIALIZED extends InitializationState
@@ -327,16 +329,152 @@ object BoltListenerApi {
   // Driver and executor initialization have different ownership in non-local deployments.
   private val driverInitializationGate = new InitializationGate
   private val executorInitializationGate = new InitializationGate
-  private val platformLibDir: String = {
-    val osName = System.getProperty("os.name") match {
+  private val nativeManifestName = "bolt-native-libraries.properties"
+  private val platformLibDir: String = nativeResourceDirectory(
+    System.getProperty("os.name"),
+    System.getProperty("os.arch"))
+
+  private[bolt] def nativeResourceDirectory(osProperty: String, archProperty: String): String = {
+    val osName = osProperty match {
       case n if n.contains("Linux") => "linux"
       case n if n.contains("Mac") => "darwin"
       case _ =>
         // Default to linux
         "linux"
     }
-    val arch = System.getProperty("os.arch")
+    val arch = (osName, archProperty) match {
+      case ("linux", "amd64" | "x86_64") => "amd64"
+      case ("darwin", "amd64" | "x86_64") => "x86_64"
+      case (_, "aarch64" | "arm64") => "aarch64"
+      case (_, arch) => arch
+    }
     s"$osName/$arch"
+  }
+
+  private[bolt] def resolveExternalLibraries(
+      backendPath: String,
+      loaderLibName: String,
+      coreLibName: String): NativeLibraries = {
+    val backend = new File(backendPath).getCanonicalFile
+    val parent = Option(backend.getParentFile).getOrElse {
+      throw new IllegalArgumentException(
+        s"Native backend path has no parent directory: $backendPath")
+    }
+    NativeLibraries(
+      new File(parent, loaderLibName).getCanonicalFile,
+      new File(parent, coreLibName).getCanonicalFile,
+      backend)
+  }
+
+  private[bolt] def requireNativeFiles(libraries: NativeLibraries): Unit = {
+    val missing = Seq(libraries.loader, libraries.core, libraries.backend).filterNot(_.isFile)
+    if (missing.nonEmpty) {
+      throw new IllegalArgumentException(
+        s"Bolt native bundle is incomplete; missing files: ${missing.mkString(", ")}")
+    }
+  }
+
+  private[bolt] def requireNativeArchitecture(libraries: NativeLibraries): Unit = {
+    if (!System.getProperty("os.name").contains("Linux")) {
+      return
+    }
+
+    val expectedMachine = System.getProperty("os.arch") match {
+      case "amd64" | "x86_64" => 62 // EM_X86_64
+      case "aarch64" | "arm64" => 183 // EM_AARCH64
+      case arch =>
+        throw new IllegalArgumentException(s"Unsupported Linux native architecture: $arch")
+    }
+    Seq(libraries.loader, libraries.core, libraries.backend).foreach {
+      library => requireElf64Machine(library, expectedMachine)
+    }
+  }
+
+  private def requireElf64Machine(library: File, expectedMachine: Int): Unit = {
+    val header = new Array[Byte](20)
+    val input = new FileInputStream(library)
+    try {
+      var offset = 0
+      while (offset < header.length) {
+        val read = input.read(header, offset, header.length - offset)
+        if (read < 0) {
+          throw new IllegalArgumentException(s"Native library has a truncated ELF header: $library")
+        }
+        offset += read
+      }
+    } finally {
+      input.close()
+    }
+
+    val isElf =
+      (header(0) & 0xff) == 0x7f && header(1) == 'E'.toByte && header(2) == 'L'.toByte &&
+        header(3) == 'F'.toByte
+    if (!isElf || header(4) != 2) {
+      throw new IllegalArgumentException(s"Native library is not a 64-bit ELF file: $library")
+    }
+    val machine = header(5) match {
+      case 1 => (header(18) & 0xff) | ((header(19) & 0xff) << 8)
+      case 2 => ((header(18) & 0xff) << 8) | (header(19) & 0xff)
+      case encoding =>
+        throw new IllegalArgumentException(
+          s"Native library has unsupported ELF byte order $encoding: $library")
+    }
+    if (machine != expectedMachine) {
+      throw new IllegalArgumentException(
+        s"Native library architecture mismatch for $library: " +
+          s"ELF machine $machine, expected $expectedMachine")
+    }
+  }
+
+  private def requireNativeResources(resources: Seq[String]): Unit = {
+    val classLoader = classOf[BoltListenerApi].getClassLoader
+    val missing = resources.filter(path => classLoader.getResource(path) == null)
+    if (missing.nonEmpty) {
+      throw new IllegalArgumentException(
+        s"Bolt native bundle is incomplete; missing resources: ${missing.mkString(", ")}")
+    }
+  }
+
+  private def requireNativeManifest(
+      manifestResource: String,
+      loaderLibName: String,
+      coreLibName: String,
+      backendLibName: String): Unit = {
+    val classLoader = classOf[BoltListenerApi].getClassLoader
+    val input = Option(classLoader.getResourceAsStream(manifestResource)).getOrElse {
+      throw new IllegalArgumentException(s"Bolt native manifest is missing: $manifestResource")
+    }
+    val properties = new Properties
+    try {
+      properties.load(input)
+    } finally {
+      input.close()
+    }
+
+    val platformAndArch = platformLibDir.split("/", 2)
+    val expected = Map(
+      "format.version" -> "1",
+      "platform" -> platformAndArch(0),
+      "arch" -> platformAndArch(1),
+      "loader.file" -> loaderLibName,
+      "loader.soname" -> loaderLibName,
+      "loader.arch" -> platformAndArch(1),
+      "core.file" -> coreLibName,
+      "core.soname" -> coreLibName,
+      "core.arch" -> platformAndArch(1),
+      "backend.file" -> backendLibName,
+      "backend.soname" -> backendLibName,
+      "backend.arch" -> platformAndArch(1),
+      "dependency.delivery" -> "thirdparty-companion-jar"
+    )
+    val mismatches = expected.collect {
+      case (key, value) if properties.getProperty(key) != value =>
+        s"$key=${properties.getProperty(key)} (expected $value)"
+    }
+    if (mismatches.nonEmpty) {
+      throw new IllegalArgumentException(
+        s"Bolt native manifest does not match this runtime: ${mismatches.mkString(", ")}")
+    }
   }
 
   private def inLocalMode(conf: SparkConf): Boolean = {
