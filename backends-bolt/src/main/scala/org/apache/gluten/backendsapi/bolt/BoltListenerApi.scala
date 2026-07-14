@@ -47,7 +47,6 @@ import org.apache.spark.sql.internal.SparkConfigUtil._
 import org.apache.spark.util.{SparkDirectoryUtil, SparkResourceUtil, SparkShutdownManagerUtil}
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
 class BoltListenerApi extends ListenerApi with Logging {
   import BoltListenerApi._
@@ -118,18 +117,19 @@ class BoltListenerApi extends ListenerApi with Logging {
       conf.set(StaticSQLConf.SPARK_CACHE_SERIALIZER, classOf[ColumnarCachedBatchSerializer].getName)
     }
 
-    // Static initializers for driver.
-    if (!driverInitialized.compareAndSet(false, true)) {
-      // Make sure we call the static initializers only once.
+    // Static initializers for driver. Keep every one-time initialization step inside the gate so
+    // READY means the whole sequence completed successfully.
+    if (
+      !driverInitializationGate.initialize {
+        SparkDirectoryUtil.init(conf)
+        initialize(conf, isDriver = true)
+        UdfJniWrapper.registerFunctionSignatures()
+      }
+    ) {
       logInfo(
         "Skip rerunning static initializers since they are only supposed to run once." +
           " You see this message probably because you are creating a new SparkSession.")
-      return
     }
-
-    SparkDirectoryUtil.init(conf)
-    initialize(conf, isDriver = true)
-    UdfJniWrapper.registerFunctionSignatures()
   }
 
   override def onDriverShutdown(): Unit = shutdown()
@@ -137,14 +137,6 @@ class BoltListenerApi extends ListenerApi with Logging {
   override def onExecutorStart(pc: PluginContext): Unit = {
     val conf = pc.conf()
 
-    // Static initializers for executor.
-    if (!executorInitialized.compareAndSet(false, true)) {
-      // Make sure we call the static initializers only once.
-      logInfo(
-        "Skip rerunning static initializers since they are only supposed to run once." +
-          " You see this message probably because you are creating a new SparkSession.")
-      return
-    }
     if (inLocalMode(conf)) {
       // Don't do static initializations from executor side in local mode.
       // Driver already did that.
@@ -153,9 +145,19 @@ class BoltListenerApi extends ListenerApi with Logging {
       return
     }
 
-    SparkDirectoryUtil.init(conf)
-    initialize(conf, isDriver = false)
-    addIfNeedMemoryDumpShutdownHook(conf)
+    // Static initializers for executor. Local mode is intentionally checked before entering the
+    // gate because the driver owns initialization in that mode.
+    if (
+      !executorInitializationGate.initialize {
+        SparkDirectoryUtil.init(conf)
+        initialize(conf, isDriver = false)
+        addIfNeedMemoryDumpShutdownHook(conf)
+      }
+    ) {
+      logInfo(
+        "Skip rerunning static initializers since they are only supposed to run once." +
+          " You see this message probably because you are creating a new SparkSession.")
+    }
   }
 
   override def onExecutorShutdown(): Unit = shutdown()
@@ -248,10 +250,83 @@ class BoltListenerApi extends ListenerApi with Logging {
 }
 
 object BoltListenerApi {
-  // TODO: Implement graceful shutdown and remove these flags.
-  //  As spark conf may change when active Spark session is recreated.
-  private val driverInitialized: AtomicBoolean = new AtomicBoolean(false)
-  private val executorInitialized: AtomicBoolean = new AtomicBoolean(false)
+
+  sealed private[bolt] trait InitializationState
+  private[bolt] case object UNINITIALIZED extends InitializationState
+  private[bolt] case object INITIALIZING extends InitializationState
+  private[bolt] case object READY extends InitializationState
+  private[bolt] case object FAILED extends InitializationState
+
+  /**
+   * A process-lifetime, fail-sticky gate for native initialization.
+   *
+   * Exactly one caller executes the initializer. Concurrent callers wait for it to finish. Once
+   * initialization fails, every current and future caller receives the first failure object; the
+   * initializer is never retried because native loading has irreversible side effects.
+   */
+  final private[bolt] class InitializationGate {
+    private var state: InitializationState = UNINITIALIZED
+    private var firstFailure: Throwable = _
+    private var initializingThread: Thread = _
+
+    /** @return true when this caller ran the initializer, false when it was already READY. */
+    def initialize(initializer: => Unit): Boolean = {
+      val shouldInitialize = synchronized {
+        while (state == INITIALIZING) {
+          if (initializingThread eq Thread.currentThread()) {
+            throw new IllegalStateException(
+              "Native initialization re-entered on the initializing thread")
+          }
+          wait()
+        }
+        state match {
+          case UNINITIALIZED =>
+            state = INITIALIZING
+            initializingThread = Thread.currentThread()
+            true
+          case READY => false
+          case FAILED => throw firstFailure
+          case INITIALIZING =>
+            throw new IllegalStateException("Initialization gate remained INITIALIZING after wait")
+        }
+      }
+
+      if (!shouldInitialize) {
+        false
+      } else {
+        try {
+          initializer
+          synchronized {
+            initializingThread = null
+            state = READY
+            notifyAll()
+          }
+          true
+        } catch {
+          case failure: Throwable =>
+            synchronized {
+              firstFailure = failure
+              initializingThread = null
+              state = FAILED
+              notifyAll()
+            }
+            throw failure
+        }
+      }
+    }
+
+    private[bolt] def currentState: InitializationState = synchronized {
+      state
+    }
+
+    private[bolt] def failure: Option[Throwable] = synchronized {
+      Option(firstFailure)
+    }
+  }
+
+  // Driver and executor initialization have different ownership in non-local deployments.
+  private val driverInitializationGate = new InitializationGate
+  private val executorInitializationGate = new InitializationGate
   private val platformLibDir: String = {
     val osName = System.getProperty("os.name") match {
       case n if n.contains("Linux") => "linux"
