@@ -19,8 +19,16 @@
 
 #include <unordered_map>
 
+gluten::JniCommonState* gluten::getJniCommonState() {
+  static JniCommonState jniCommonState;
+  return &jniCommonState;
+}
+
 void gluten::JniCommonState::ensureInitialized(JNIEnv* env) {
   std::lock_guard<std::mutex> lockGuard(mtx_);
+  if (closed_) {
+    throw gluten::GlutenException("Cannot initialize JniCommonState after it has been closed");
+  }
   if (initialized_) {
     return;
   }
@@ -29,7 +37,8 @@ void gluten::JniCommonState::ensureInitialized(JNIEnv* env) {
 }
 
 void gluten::JniCommonState::assertInitialized() const {
-  if (!initialized_) {
+  std::lock_guard<std::mutex> lockGuard(mtx_);
+  if (!initialized_ || closed_) {
     throw gluten::GlutenException("Fatal: JniCommonState::Initialize(...) was not called before using the utility");
   }
 }
@@ -40,23 +49,36 @@ jmethodID gluten::JniCommonState::runtimeAwareCtxHandle() {
 }
 
 void gluten::JniCommonState::initialize(JNIEnv* env) {
-  runtimeAwareClass_ = createGlobalClassReference(env, "Lorg/apache/gluten/runtime/RuntimeAware;");
-  runtimeAwareCtxHandle_ = getMethodIdOrError(env, runtimeAwareClass_, "rtHandle", "()J");
-  JavaVM* vm;
-  if (env->GetJavaVM(&vm) != JNI_OK) {
-    throw gluten::GlutenException("Unable to get JavaVM instance");
+  try {
+    runtimeAwareClass_ = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/runtime/RuntimeAware;");
+    runtimeAwareCtxHandle_ = getMethodIdOrError(env, runtimeAwareClass_, "rtHandle", "()J");
+    JavaVM* vm;
+    if (env->GetJavaVM(&vm) != JNI_OK) {
+      throw gluten::GlutenException("Unable to get JavaVM instance");
+    }
+    vm_ = vm;
+  } catch (...) {
+    if (runtimeAwareClass_ != nullptr) {
+      env->DeleteGlobalRef(runtimeAwareClass_);
+      runtimeAwareClass_ = nullptr;
+    }
+    runtimeAwareCtxHandle_ = nullptr;
+    vm_ = nullptr;
+    throw;
   }
-  vm_ = vm;
 }
 
 void gluten::JniCommonState::close() {
   std::lock_guard<std::mutex> lockGuard(mtx_);
-  if (closed_) {
+  if (!initialized_ || closed_) {
     return;
   }
   JNIEnv* env = nullptr;
   attachCurrentThreadAsDaemonOrThrow(vm_, &env);
   env->DeleteGlobalRef(runtimeAwareClass_);
+  runtimeAwareClass_ = nullptr;
+  runtimeAwareCtxHandle_ = nullptr;
+  vm_ = nullptr;
   closed_ = true;
 }
 

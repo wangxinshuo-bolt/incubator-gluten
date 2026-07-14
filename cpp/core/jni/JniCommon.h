@@ -176,19 +176,16 @@ class JniCommonState {
  private:
   void initialize(JNIEnv* env);
 
-  jclass runtimeAwareClass_;
-  jmethodID runtimeAwareCtxHandle_;
+  jclass runtimeAwareClass_{nullptr};
+  jmethodID runtimeAwareCtxHandle_{nullptr};
 
-  JavaVM* vm_;
+  JavaVM* vm_{nullptr};
   bool initialized_{false};
   bool closed_{false};
-  std::mutex mtx_;
+  mutable std::mutex mtx_;
 };
 
-inline JniCommonState* getJniCommonState() {
-  static JniCommonState jniCommonState;
-  return &jniCommonState;
-}
+JniCommonState* getJniCommonState();
 
 Runtime* getRuntime(JNIEnv* env, jobject runtimeAware);
 
