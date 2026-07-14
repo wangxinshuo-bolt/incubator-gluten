@@ -75,6 +75,44 @@ jmethodID infoClsInitMethod;
 jclass blockStripesClass;
 jmethodID blockStripesConstructor;
 
+void deleteGlobalRefIfPresent(JNIEnv* env, jclass& ref) {
+  if (ref != nullptr) {
+    env->DeleteGlobalRef(ref);
+    ref = nullptr;
+  }
+}
+
+void releaseBoltJniGlobalRefs(JNIEnv* env) {
+  deleteGlobalRefIfPresent(env, splitResultClass);
+  deleteGlobalRefIfPresent(env, shuffleReaderMetricsClass);
+  deleteGlobalRefIfPresent(env, blockStripesClass);
+  deleteGlobalRefIfPresent(env, infoCls);
+}
+
+void clearPendingJavaException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+  }
+}
+
+void cleanupBoltJniInitialization(JNIEnv* env, bool fileSystemInitialized, bool udfInitialized) {
+  clearPendingJavaException(env);
+  releaseBoltJniGlobalRefs(env);
+  if (udfInitialized) {
+    try {
+      finalizeBoltJniUDF(env);
+    } catch (...) {
+    }
+  }
+  if (fileSystemInitialized) {
+    try {
+      finalizeBoltJniFileSystem(env);
+    } catch (...) {
+    }
+  }
+  clearPendingJavaException(env);
+}
+
 } // namespace
 
 namespace gluten {
@@ -99,59 +137,83 @@ createBoltInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime
 extern "C" {
 #endif
 
-jint JNI_OnLoad(JavaVM* vm, void*) {
-  JNIEnv* env;
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
+  if (vm == nullptr) {
+    return JNI_ERR;
+  }
+  JNIEnv* env = nullptr;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
   }
 
-  jint jniVersion = JNI_OnLoad_Base(vm, nullptr);
-  if (jniVersion == JNI_ERR) {
+  bool fileSystemInitialized = false;
+  bool udfInitialized = false;
+  try {
+    // Core owns the common JNI states and must be loaded explicitly before
+    // this backend. DT_NEEDED alone does not invoke Core's JNI_OnLoad.
+    getJniCommonState()->assertInitialized();
+    getJniErrorState()->assertInitialized();
+
+    initBoltJniFileSystem(env);
+    fileSystemInitialized = true;
+    initBoltJniUDF(env);
+    udfInitialized = true;
+    gluten::OnHeapMemUsedHookSetter::init(vm);
+
+    infoCls = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/validate/NativePlanValidationInfo;");
+    infoClsInitMethod = getMethodIdOrError(env, infoCls, "<init>", "(ILjava/lang/String;)V");
+
+    blockStripesClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/spark/sql/execution/datasources/BlockStripes;");
+    blockStripesConstructor = getMethodIdOrError(env, blockStripesClass, "<init>", "(J[J[II[[B)V");
+
+    shuffleReaderMetricsClass =
+        createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/shuffle/BoltShuffleReaderMetrics;");
+    shuffleReaderMetricsSetDecompressTime =
+        getMethodIdOrError(env, shuffleReaderMetricsClass, "setDecompressTime", "(J)V");
+    shuffleReaderMetricsSetDeserializeTime =
+        getMethodIdOrError(env, shuffleReaderMetricsClass, "setDeserializeTime", "(J)V");
+
+    splitResultClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/shuffle/BoltSplitResult;");
+    splitResultConstructor = getMethodIdOrError(env, splitResultClass, "<init>", "(JJJJJJJJJJJJJJJJJ[J[J)V");
+
+    // Publish the backend callback only after all Bolt JNI state is ready.
+    registerInputIteratorFactory(kBoltBackendKind, &createBoltInputIterator);
+
+    DLOG(INFO) << "Loaded Bolt backend.";
+  } catch (const std::exception& e) {
+    cleanupBoltJniInitialization(env, fileSystemInitialized, udfInitialized);
+    LOG(ERROR) << "Failed to load Bolt backend: " << e.what();
+    return JNI_ERR;
+  } catch (...) {
+    cleanupBoltJniInitialization(env, fileSystemInitialized, udfInitialized);
+    LOG(ERROR) << "Failed to load Bolt backend due to an unknown error";
     return JNI_ERR;
   }
-
-  initBoltJniFileSystem(env);
-  initBoltJniUDF(env);
-  gluten::OnHeapMemUsedHookSetter::init(vm);
-
-  infoCls = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/validate/NativePlanValidationInfo;");
-  infoClsInitMethod = getMethodIdOrError(env, infoCls, "<init>", "(ILjava/lang/String;)V");
-
-  blockStripesClass =
-      createGlobalClassReferenceOrError(env, "Lorg/apache/spark/sql/execution/datasources/BlockStripes;");
-  blockStripesConstructor = getMethodIdOrError(env, blockStripesClass, "<init>", "(J[J[II[[B)V");
-
-  shuffleReaderMetricsClass =
-      createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/shuffle/BoltShuffleReaderMetrics;");
-  shuffleReaderMetricsSetDecompressTime =
-      getMethodIdOrError(env, shuffleReaderMetricsClass, "setDecompressTime", "(J)V");
-  shuffleReaderMetricsSetDeserializeTime =
-      getMethodIdOrError(env, shuffleReaderMetricsClass, "setDeserializeTime", "(J)V");
-
-  splitResultClass = createGlobalClassReferenceOrError(env, "Lorg/apache/gluten/shuffle/BoltSplitResult;");
-  splitResultConstructor = getMethodIdOrError(env, splitResultClass, "<init>", "(JJJJJJJJJJJJJJJJJ[J[J)V");
-
-  registerInputIteratorFactory(kBoltBackendKind, &createBoltInputIterator);
-  DLOG(INFO) << "Loaded Bolt backend.";
 
   return jniVersion;
 }
 
-void JNI_OnUnload(JavaVM* vm, void*) {
-  JNIEnv* env;
-  vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void*) {
+  if (vm == nullptr) {
+    return;
+  }
+  JNIEnv* env = nullptr;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
+    return;
+  }
 
-  env->DeleteGlobalRef(splitResultClass);
-  env->DeleteGlobalRef(shuffleReaderMetricsClass);
-  env->DeleteGlobalRef(blockStripesClass);
-  env->DeleteGlobalRef(infoCls);
-
-  finalizeBoltJniUDF(env);
-  finalizeBoltJniFileSystem(env);
-
-  JNI_OnUnload_Base(vm, nullptr);
-
-  google::ShutdownGoogleLogging();
+  try {
+    releaseBoltJniGlobalRefs(env);
+    finalizeBoltJniUDF(env);
+    finalizeBoltJniFileSystem(env);
+  } catch (const std::exception& e) {
+    clearPendingJavaException(env);
+    LOG(ERROR) << "Failed to unload Bolt JNI cleanly: " << e.what();
+  } catch (...) {
+    clearPendingJavaException(env);
+    LOG(ERROR) << "Failed to unload Bolt JNI cleanly due to an unknown error";
+  }
 }
 
 JNIEXPORT void JNICALL Java_org_apache_gluten_init_NativeBackendInitializer_initialize( // NOLINT

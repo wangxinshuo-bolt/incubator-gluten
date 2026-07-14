@@ -14,7 +14,7 @@
 
   <properties>
     <cpp.build.dir>../cpp/build/</cpp.build.dir>
-    <cpp.releases.dir>${cpp.build.dir}/releases/</cpp.releases.dir>
+    <cpp.bolt.package.dir>${cpp.build.dir}/package/bolt/${platform}/${arch}/</cpp.bolt.package.dir>
     <byte-buddy.version>1.9.3</byte-buddy.version>
   </properties>
 
@@ -204,13 +204,68 @@
       </resource>
       <resource>
         <targetPath>${platform}/${arch}</targetPath>
-        <directory>${cpp.releases.dir}</directory>
+        <directory>${cpp.bolt.package.dir}</directory>
+        <includes>
+          <include>libgluten.*</include>
+          <include>libbolt_backend.*</include>
+          <include>libglutenlibloader.*</include>
+          <include>bolt-native-libraries.properties</include>
+        </includes>
       </resource>
     </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>validate-bolt-native-package</id>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <phase>validate</phase>
+            <configuration>
+              <target>
+                <resourcecount property="bolt.core.native.count">
+                  <fileset dir="${cpp.bolt.package.dir}" erroronmissingdir="false">
+                    <include name="libgluten.*"/>
+                  </fileset>
+                </resourcecount>
+                <resourcecount property="bolt.backend.native.count">
+                  <fileset dir="${cpp.bolt.package.dir}" erroronmissingdir="false">
+                    <include name="libbolt_backend.*"/>
+                  </fileset>
+                </resourcecount>
+                <resourcecount property="bolt.loader.native.count">
+                  <fileset dir="${cpp.bolt.package.dir}" erroronmissingdir="false">
+                    <include name="libglutenlibloader.*"/>
+                  </fileset>
+                </resourcecount>
+                <resourcecount property="bolt.native.manifest.count">
+                  <fileset dir="${cpp.bolt.package.dir}" erroronmissingdir="false">
+                    <include name="bolt-native-libraries.properties"/>
+                  </fileset>
+                </resourcecount>
+                <fail message="Bolt native package is incomplete in ${cpp.bolt.package.dir}. Build the native Bolt backend before Maven.">
+                  <condition>
+                    <not>
+                      <and>
+                        <equals arg1="${bolt.core.native.count}" arg2="1"/>
+                        <equals arg1="${bolt.backend.native.count}" arg2="1"/>
+                        <equals arg1="${bolt.loader.native.count}" arg2="1"/>
+                        <equals arg1="${bolt.native.manifest.count}" arg2="1"/>
+                      </and>
+                    </not>
+                  </condition>
+                </fail>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>net.alchim31.maven</groupId>
@@ -244,6 +299,7 @@
           <tagsToExclude>${tagsToExclude}</tagsToExclude>
           <systemProperties>
             <bolt.udf.lib.path>${cpp.build.dir}/Release/bolt/udf/examples/libmyudf.so</bolt.udf.lib.path>
+            <bolt.native.package.dir>${cpp.bolt.package.dir}</bolt.native.package.dir>
           </systemProperties>
         </configuration>
       </plugin>

@@ -183,8 +183,22 @@ if(BUILD_TEST_UTILS)
   list(APPEND BOLT_SRCS tests/utils/TestAllocationListener.cc)
 endif()
 
-add_library(${PROJECT_NAME} ${BOLT_SRCS})
+add_library(${PROJECT_NAME} SHARED ${BOLT_SRCS})
 target_compile_options(${PROJECT_NAME} PUBLIC -fPIC)
+
+if(APPLE)
+  set(BOLT_RELATIVE_LIBRARY_RPATH "@loader_path")
+else()
+  set(BOLT_RELATIVE_LIBRARY_RPATH "$ORIGIN")
+endif()
+
+set_target_properties(
+  ${PROJECT_NAME}
+  PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${root_directory}/releases"
+    BUILD_RPATH "${BOLT_RELATIVE_LIBRARY_RPATH}"
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "${BOLT_RELATIVE_LIBRARY_RPATH}")
 
 if (BUILD_STATIC)
   add_library(${PROJECT_NAME}_static STATIC ${BOLT_SRCS})
@@ -192,8 +206,10 @@ endif()
 
 get_target_property(target_type ${PROJECT_NAME} TYPE)
 
-if (${target_type} STREQUAL "SHARED_LIBRARY")
+if (${target_type} STREQUAL "SHARED_LIBRARY"
+    AND NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
   target_link_options(${PROJECT_NAME} PRIVATE -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map)
+  set_target_properties(${PROJECT_NAME} PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/symbols.map)
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -203,14 +219,6 @@ if (BUILD_STATIC)
   target_include_directories(${PROJECT_NAME}_static PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   target_include_directories(${PROJECT_NAME}_static PUBLIC ${JNI_INCLUDE_DIRS})
 endif()
-
-
-if(ENABLE_GLUTEN_VCPKG AND NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  # Hide some symbols to avoid conflict.
-  target_link_options(
-    ${PROJECT_NAME} PRIVATE -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map)
-endif()
-
 
 
 add_custom_target(bolt_jni_proto ALL DEPENDS ${SUBSTRAIT_PROTO_OUTPUT_FILES}
@@ -235,9 +243,6 @@ if (BUILD_STATIC)
            ${CMAKE_CURRENT_BINARY_DIR}
            ${PROTOBUF_INCLUDE})
 endif()
-
-# set_target_properties(${PROJECT_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-#                                        ${root_directory}/releases)
 
 # If folly is not installed in system lib paths, please add
 # `-DCMAKE_PREFIX_PATH="${folly lib path}" to cmake arguments. It is also
@@ -374,27 +379,16 @@ if(BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
-
 if(BUILD_EXAMPLES)
   add_subdirectory(udf/examples)
 endif()
-
-# add arch suffix (.amd64 or .aarch64)
-# Aligned with java ``` System.getProperty("os.arch") ```
-IF((${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86_64") OR (${CMAKE_SYSTEM_PROCESSOR} MATCHES "AMD64"))
-  set(ARCH "amd64")
-ELSEIF(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
-  set(ARCH "aarch64")
-ELSE()
-  message(FATAL_ERROR "Unsupported System Architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-ENDIF()
 
 get_target_property(target_type ${PROJECT_NAME} TYPE)
 
 if (${target_type} STREQUAL "SHARED_LIBRARY")
   set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
   install(TARGETS ${PROJECT_NAME}
-        DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../build/releases)
+        DESTINATION ${root_directory}/releases)
 endif()
 
 # For conan exporting

@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 #pragma once
-#include <stdexcept>
-#include "JniCommon.h"
+
+#include <jni.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-jint JNI_OnLoad_Base(JavaVM* vm, void* reserved);
-void JNI_OnUnload_Base(JavaVM * vm, void* reserved);
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved);
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved);
+
 #ifdef __cplusplus
 }
-
-namespace gluten {
-extern std::unique_ptr<ColumnarBatchIterator>
-createInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex);
-}
-
 #endif

@@ -24,7 +24,7 @@ import org.apache.gluten.execution.datasource.GlutenFormatFactory
 import org.apache.gluten.expression.UDFMappings
 import org.apache.gluten.extension.columnar.transition.Convention
 import org.apache.gluten.init.NativeBackendInitializer
-import org.apache.gluten.jni.{BoltJniLibLoader, JniWorkspace}
+import org.apache.gluten.jni.{BoltJniLibLoader, JniLibLoader, JniWorkspace}
 import org.apache.gluten.memory.{MemoryUsageRecorder, SimpleMemoryUsageRecorder}
 import org.apache.gluten.memory.listener.ReservationListener
 import org.apache.gluten.monitor.BoltMemoryProfiler
@@ -45,6 +45,8 @@ import org.apache.spark.sql.expression.UDFResolver
 import org.apache.spark.sql.internal.{GlutenConfigUtil, StaticSQLConf}
 import org.apache.spark.sql.internal.SparkConfigUtil._
 import org.apache.spark.util.{SparkDirectoryUtil, SparkResourceUtil, SparkShutdownManagerUtil}
+
+import org.apache.commons.lang3.StringUtils
 
 import java.io.{File, FileInputStream}
 import java.util.{Properties, UUID}
@@ -207,19 +209,41 @@ class BoltListenerApi extends ListenerApi with Logging {
     // Load supported hive/python/scala udfs
     UDFMappings.loadFromSparkConf(conf)
 
-    // Initial library loader.
-    val loader = new BoltJniLibLoader(JniWorkspace.getDefault.getWorkDir)
+    val resourceLoader = JniWorkspace.getDefault.libLoader
+    val loader = new BoltJniLibLoader(resourceLoader)
+    val loaderLibName = System.mapLibraryName("glutenlibloader")
+    val coreLibName = System.mapLibraryName(conf.get(GlutenConfig.GLUTEN_LIB_NAME))
+    val boltLibName = System.mapLibraryName(BoltBackend.BACKEND_NAME + "_backend")
+    val libPath = conf.get(GlutenConfig.GLUTEN_LIB_PATH)
 
-    // Load shared native libraries the backend libraries depend on.
-    SharedLibraryLoaderUtils.load(conf, loader)
+    if (StringUtils.isBlank(libPath)) {
+      val manifestResource = s"$platformLibDir/$nativeManifestName"
+      val loaderResource = s"$platformLibDir/$loaderLibName"
+      val coreResource = s"$platformLibDir/$coreLibName"
+      val boltResource = s"$platformLibDir/$boltLibName"
+      requireNativeResources(Seq(manifestResource, loaderResource, coreResource, boltResource))
+      requireNativeManifest(manifestResource, loaderLibName, coreLibName, boltLibName)
 
-    // Load backend libraries.
-    loader.load(s"$platformLibDir/${System.mapLibraryName("glutenlibloader")}", false)
-    // The symbols in bolt_backend, should be exposed.
-    // LLVM JIT modules / UDFs needs to access the symbols.
-    val flags = BoltJniLibLoader.RTLD_GLOBAL | BoltJniLibLoader.RTLD_LAZY
-    val boltLibName = BoltBackend.BACKEND_NAME + "_backend"
-    loader.load(s"$platformLibDir/${System.mapLibraryName(boltLibName)}", false, flags)
+      loader.load(loaderResource, false)
+      SharedLibraryLoaderUtils.load(conf, loader)
+
+      val corePath = loader.loadAndGetPath(coreResource)
+      BoltJniLibLoader.nativePromoteLibrary(corePath)
+      val boltPath = loader.loadAndGetPath(boltResource)
+      BoltJniLibLoader.nativePromoteLibrary(boltPath)
+    } else {
+      val libraries = resolveExternalLibraries(libPath, loaderLibName, coreLibName)
+      requireNativeFiles(libraries)
+      requireNativeArchitecture(libraries)
+
+      JniLibLoader.loadFromPath(libraries.loader.getPath)
+      SharedLibraryLoaderUtils.load(conf, loader)
+
+      val corePath = JniLibLoader.loadFromPathAndGetPath(libraries.core.getPath)
+      BoltJniLibLoader.nativePromoteLibrary(corePath)
+      val boltPath = JniLibLoader.loadFromPathAndGetPath(libraries.backend.getPath)
+      BoltJniLibLoader.nativePromoteLibrary(boltPath)
+    }
 
     // Initial native backend with configurations.
     NativeBackendInitializer
