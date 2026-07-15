@@ -18,9 +18,6 @@
 #pragma once
 
 #include <glog/logging.h>
-#include <cstdint>
-#include <memory>
-#include <utility>
 
 #include "compute/ProtobufUtils.h"
 #include "compute/ResultIterator.h"

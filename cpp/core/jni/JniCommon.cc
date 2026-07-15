@@ -16,8 +16,7 @@
  */
 
 #include "JniCommon.h"
-
-#include <unordered_map>
+#include <folly/system/ThreadName.h>
 
 gluten::JniCommonState* gluten::getJniCommonState() {
   static JniCommonState jniCommonState;

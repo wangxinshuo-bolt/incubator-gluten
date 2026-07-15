@@ -232,7 +232,33 @@ if(ENABLE_ENHANCED_FEATURES)
 endif()
 
 # Subdirectories
+include("${CMAKE_CURRENT_LIST_DIR}/CMake/ConfigArrow.cmake")
+find_package(Arrow CONFIG REQUIRED)
+
+if(NOT TARGET Arrow::arrow)
+  if(TARGET arrow::arrow)
+    add_library(Arrow::arrow ALIAS arrow::arrow)
+  else()
+    message(FATAL_ERROR "Bolt Arrow package does not provide arrow::arrow")
+  endif()
+endif()
+
+if(NOT TARGET Arrow::arrow_bundled_dependencies)
+  add_library(Arrow::arrow_bundled_dependencies INTERFACE IMPORTED)
+endif()
+
+if(NOT TARGET google::glog)
+  if(TARGET glog::glog)
+    add_library(google::glog ALIAS glog::glog)
+  else()
+    message(FATAL_ERROR "Bolt glog package does not provide glog::glog")
+  endif()
+endif()
+
 add_subdirectory(core)
+if(GLUTEN_PREFIX_INCLUDE_DIRS)
+  target_include_directories(gluten BEFORE PUBLIC ${GLUTEN_PREFIX_INCLUDE_DIRS})
+endif()
 
 if(BUILD_BOLT)
   add_subdirectory(bolt)

@@ -25,13 +25,11 @@
 #include "config/GlutenConfig.h"
 #include "jni/JniCommon.h"
 #include "jni/JniError.h"
-#include "memory/ColumnarBatch.h"
 
 #include <arrow/c/bridge.h>
 #include <google/protobuf/stubs/common.h>
 #include <optional>
 #include <string>
-#include <utility>
 #include "memory/AllocationListener.h"
 #include "memory/SplitAwareColumnarBatchIterator.h"
 #include "operators/serializer/ColumnarBatchSerializer.h"
@@ -376,7 +374,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_runtime_RuntimeJniWrapper_createR
   auto backendType = jStringToCString(env, jBackendType);
 
   auto runtime = Runtime::create(backendType, memoryManager, threadManager, sparkConf);
-
   return reinterpret_cast<jlong>(runtime);
   JNI_METHOD_END(kInvalidObjectHandle)
 }
@@ -1211,7 +1208,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_vectorized_ShuffleWriterJniWrappe
     throw GlutenException(errorMessage);
   }
 
-  // The column batch may be a backend column batch or ArrowCStructColumnarBatch(FallbackRangeShuffleWriter).
+  // The column batch maybe VeloxColumnBatch or ArrowCStructColumnarBatch(FallbackRangeShuffleWriter)
   auto batch = ObjectStore::retrieve<ColumnarBatch>(batchHandle);
   arrowAssertOkOrThrow(shuffleWriter->write(batch, memLimit), "Native write: shuffle writer failed");
   return shuffleWriter->bytesWritten();

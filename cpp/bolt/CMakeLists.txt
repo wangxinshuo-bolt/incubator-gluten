@@ -311,7 +311,6 @@ endif()
 
 find_package(re2 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC ${RE2_LIBRARY})
-find_package(Arrow CONFIG REQUIRED)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" BUILD_TYPE_UPPER)
 set(ARROW_PATH ${arrow_arrow_dataset_LIB_DIRS_${BUILD_TYPE_UPPER}})

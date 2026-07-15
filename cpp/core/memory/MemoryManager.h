@@ -17,9 +17,6 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-
 #include "arrow/memory_pool.h"
 #include "memory.pb.h"
 #include "memory/AllocationListener.h"

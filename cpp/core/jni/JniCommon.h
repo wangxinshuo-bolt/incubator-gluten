@@ -25,7 +25,6 @@
 #include "compute/ProtobufUtils.h"
 #include "compute/Runtime.h"
 #include "memory/AllocationListener.h"
-#include "shuffle/ShuffleReader.h"
 #include "shuffle/rss/RssClient.h"
 #include "threads/ThreadInitializer.h"
 #include "utils/Compression.h"
@@ -150,8 +149,9 @@ static T* jniCastOrThrow(jlong handle) {
   GLUTEN_CHECK(instance != nullptr, "FATAL: resource instance should not be null.");
   return instance;
 }
-
 namespace gluten {
+
+class StreamReader;
 
 std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuffleStreamReader);
 
@@ -516,7 +516,6 @@ class JavaRssClient : public RssClient {
 
   ~JavaRssClient() {
     JNIEnv* env;
-    attachCurrentThreadAsDaemonOrThrow(vm_, &env);
     if (vm_->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
       LOG(WARNING) << "JavaRssClient#~JavaRssClient(): "
                    << "JNIEnv was not attached to current thread";
@@ -533,7 +532,6 @@ class JavaRssClient : public RssClient {
 
   int32_t pushPartitionData(int32_t partitionId, const char* bytes, int64_t size) override {
     JNIEnv* env;
-    attachCurrentThreadAsDaemonOrThrow(vm_, &env);
     if (vm_->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
       throw gluten::GlutenException("JNIEnv was not attached to current thread");
     }
