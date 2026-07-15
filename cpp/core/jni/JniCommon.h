@@ -292,6 +292,12 @@ DEFINE_SAFE_GET_PRIMITIVE_ARRAY_FUNCTIONS(kLong, jlongArray, Long)
 DEFINE_SAFE_GET_PRIMITIVE_ARRAY_FUNCTIONS(kFloat, jfloatArray, Float)
 DEFINE_SAFE_GET_PRIMITIVE_ARRAY_FUNCTIONS(kDouble, jdoubleArray, Double)
 
+struct JniInputIteratorContext {
+  JNIEnv* env;
+  jobject jColumnarBatchIterator;
+  int32_t iteratorIndex;
+};
+
 class JniColumnarBatchIterator : public ColumnarBatchIterator {
  public:
   explicit JniColumnarBatchIterator(

@@ -14,15 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-#include <stdexcept>
-#include "JniCommon.h"
-#ifdef __cplusplus
-extern "C" {
-#endif
-jint JNI_OnLoad_Base(JavaVM* vm, void* reserved);
-void JNI_OnUnload_Base(JavaVM * vm, void* reserved);
-#ifdef __cplusplus
+
+#include "jni/JniCommon.h"
+
+#include <gtest/gtest.h>
+
+using namespace gluten;
+
+namespace {
+
+class TestRuntime final : public Runtime {
+ public:
+  TestRuntime() : Runtime("jni-input-iterator-test", nullptr, nullptr, {}) {}
+
+  std::unique_ptr<ColumnarBatchIterator> createJniInputIterator(const JniInputIteratorContext& context) override {
+    iteratorIndex = context.iteratorIndex;
+    return nullptr;
+  }
+
+  int32_t iteratorIndex{-1};
+};
+
+TEST(JniInputIterator, DispatchesThroughRuntime) {
+  TestRuntime runtime;
+  Runtime* base = &runtime;
+  base->createJniInputIterator({nullptr, nullptr, 7});
+  EXPECT_EQ(runtime.iteratorIndex, 7);
 }
 
-#endif
+} // namespace

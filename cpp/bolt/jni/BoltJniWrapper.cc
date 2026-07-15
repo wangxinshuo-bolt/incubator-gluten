@@ -24,7 +24,6 @@
 #include <jni/JniCommon.h>
 
 #include <exception>
-#include "BoltInputIterator.h"
 #include "JniUdf.h"
 #include "bolt/common/base/BloomFilter.h"
 #include "bolt/common/file/FileSystems.h"
@@ -75,24 +74,6 @@ jclass blockStripesClass;
 jmethodID blockStripesConstructor;
 
 } // namespace
-
-namespace gluten {
-std::unique_ptr<ColumnarBatchIterator>
-createInputIterator(JNIEnv* env, jobject jColumnarBatchItr, Runtime* runtime, int32_t iteratorIndex) {
-  const auto& conf = runtime->getConfMap();
-  bool parallelEnabled = getBoolConfigValue(conf, kGlutenEnableParallel, false);
-  LOG(INFO) << "nativeCreateKernelWithIterator parallelEnabled=" << parallelEnabled;
-
-  auto shuffleReaderIter =
-      ShuffleReaderWrapperedIterator::tryFrom(env, jColumnarBatchItr, runtime, parallelEnabled, iteratorIndex);
-  if (shuffleReaderIter != nullptr) {
-    LOG(INFO) << "Wrap ShuffleReaderWrapperedIterator for input iterator " << iteratorIndex;
-    return shuffleReaderIter;
-  }
-  return std::make_unique<BoltJniColumnarBatchIterator>(
-      env, jColumnarBatchItr, runtime, parallelEnabled, iteratorIndex);
-}
-}
 
 #ifdef __cplusplus
 extern "C" {
