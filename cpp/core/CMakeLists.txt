@@ -241,15 +241,13 @@ install(TARGETS gluten DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/libhdfs.so
         DESTINATION ${LIBHDFS3_DESTINATION})
 
-if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-  add_custom_command(
-    TARGET gluten
-    POST_BUILD
-    COMMAND ld $<TARGET_FILE:gluten> || true
-    COMMENT "Checking ld result of libgluten.so")
-  add_custom_command(
-    TARGET gluten
-    POST_BUILD
-    COMMAND ldd $<TARGET_FILE:gluten> || true
-    COMMENT "Checking ldd result of libgluten.so")
-endif()
+add_custom_command(
+  TARGET gluten
+  POST_BUILD
+  COMMAND ld $<TARGET_FILE:gluten> || true
+  COMMENT "Checking ld result of libgluten.so")
+add_custom_command(
+  TARGET gluten
+  POST_BUILD
+  COMMAND ldd $<TARGET_FILE:gluten> || true
+  COMMENT "Checking ldd result of libgluten.so")

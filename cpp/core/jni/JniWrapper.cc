@@ -286,7 +286,7 @@ std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuf
 extern "C" {
 #endif
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
@@ -342,7 +342,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
   return jniVersion;
 }
 
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
+void JNI_OnUnload(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
   env->DeleteGlobalRef(jniByteInputStreamClass);
