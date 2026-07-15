@@ -19,6 +19,11 @@
 
 #include <unordered_map>
 
+gluten::JniCommonState* gluten::getJniCommonState() {
+  static JniCommonState jniCommonState;
+  return &jniCommonState;
+}
+
 void gluten::JniCommonState::ensureInitialized(JNIEnv* env) {
   std::lock_guard<std::mutex> lockGuard(mtx_);
   if (initialized_) {
