@@ -93,14 +93,14 @@ auto makePartitionIdGenerator(
 extern "C" {
 #endif
 
-jint JNI_OnLoad(JavaVM* vm, void*) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
   }
 
-  getJniCommonState()->ensureInitialized(env);
-  getJniErrorState()->ensureInitialized(env);
+  getJniCommonState()->assertInitialized();
+  getJniErrorState()->assertInitialized();
   initVeloxJniFileSystem(env);
   initVeloxJniUDF(env);
   initVeloxJniHashTable(env, vm);
@@ -120,7 +120,7 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
   return jniVersion;
 }
 
-void JNI_OnUnload(JavaVM* vm, void*) {
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void*) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
 
@@ -129,8 +129,6 @@ void JNI_OnUnload(JavaVM* vm, void*) {
   finalizeVeloxJniUDF(env);
   finalizeVeloxJniFileSystem(env);
   finalizeVeloxJniHashTable(env);
-  getJniErrorState()->close();
-  getJniCommonState()->close();
   google::ShutdownGoogleLogging();
 }
 

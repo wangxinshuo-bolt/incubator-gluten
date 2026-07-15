@@ -154,10 +154,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
     jni/TaskContextJniWrapper.cc)
 
 file(MAKE_DIRECTORY ${root_directory}/releases)
-if(NOT DEFINED GLUTEN_CORE_LIBRARY_TYPE)
-  set(GLUTEN_CORE_LIBRARY_TYPE SHARED)
-endif()
-add_library(gluten ${GLUTEN_CORE_LIBRARY_TYPE} ${SPARK_COLUMNAR_PLUGIN_SRCS})
+add_library(gluten SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS})
 add_dependencies(gluten jni_proto)
 
 # Hide symbols of some static dependencies. Otherwise, if such dependencies are
@@ -233,11 +230,6 @@ set_target_properties(gluten PROPERTIES LIBRARY_OUTPUT_DIRECTORY
 if(BUILD_TESTS)
   add_subdirectory(tests)
 endif()
-
-if(GLUTEN_CORE_RENAME_JNI_ENTRYPOINTS)
-  target_compile_definitions(gluten PRIVATE JNI_OnLoad=JNI_OnLoad_Base JNI_OnUnload=JNI_OnUnload_Base)
-endif()
-
 
 if(DEFINED ENV{HADOOP_HOME})
   set(LIBHDFS3_DESTINATION $ENV{HADOOP_HOME}/lib/native)

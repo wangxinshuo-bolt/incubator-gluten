@@ -25,8 +25,6 @@
 #include "config/GlutenConfig.h"
 #include "jni/JniCommon.h"
 #include "jni/JniError.h"
-#include "jni/JniWrapper.h"
-
 #include "memory/ColumnarBatch.h"
 
 #include <arrow/c/bridge.h>
@@ -294,7 +292,7 @@ std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuf
 extern "C" {
 #endif
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
@@ -350,13 +348,14 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   return jniVersion;
 }
 
-void JNI_OnUnload(JavaVM* vm, void* reserved) {
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
   env->DeleteGlobalRef(jniByteInputStreamClass);
   env->DeleteGlobalRef(splitResultClass);
   env->DeleteGlobalRef(nativeColumnarToRowInfoClass);
   env->DeleteGlobalRef(byteArrayClass);
+  env->DeleteGlobalRef(metricsBuilderClass);
   env->DeleteGlobalRef(jniUnsafeByteBufferClass);
   env->DeleteGlobalRef(shuffleReaderMetricsClass);
 

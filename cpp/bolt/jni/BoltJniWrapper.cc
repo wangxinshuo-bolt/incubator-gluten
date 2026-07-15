@@ -33,7 +33,6 @@
 #include "config/GlutenConfig.h"
 #include "jni/JniError.h"
 #include "jni/JniFileSystem.h"
-#include "jni/JniWrapper.h"
 #include "memory/BoltColumnarBatch.h"
 #include "memory/BoltGlutenMemoryManager.h"
 #include "memory/BoltMemoryManager.h"
@@ -79,16 +78,14 @@ jmethodID blockStripesConstructor;
 extern "C" {
 #endif
 
-jint JNI_OnLoad(JavaVM* vm, void*) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
     return JNI_ERR;
   }
 
-  jint jniVersion = JNI_OnLoad_Base(vm, nullptr);
-  if (jniVersion == JNI_ERR) {
-    return JNI_ERR;
-  }
+  getJniCommonState()->assertInitialized();
+  getJniErrorState()->assertInitialized();
 
   initBoltJniFileSystem(env);
   initBoltJniUDF(env);
@@ -116,7 +113,7 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
   return jniVersion;
 }
 
-void JNI_OnUnload(JavaVM* vm, void*) {
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void*) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
 
@@ -127,8 +124,6 @@ void JNI_OnUnload(JavaVM* vm, void*) {
 
   finalizeBoltJniUDF(env);
   finalizeBoltJniFileSystem(env);
-
-  JNI_OnUnload_Base(vm, nullptr);
 
   google::ShutdownGoogleLogging();
 }
