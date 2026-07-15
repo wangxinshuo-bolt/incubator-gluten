@@ -1,0 +1,273 @@
+diff --git a/cpp/core/CMakeLists.txt b/cpp/core/CMakeLists.txt
+index f3860166a..7e84dd3aa 100644
+--- a/cpp/core/CMakeLists.txt
++++ b/cpp/core/CMakeLists.txt
+@@ -241,13 +241,15 @@ install(TARGETS gluten DESTINATION ${CMAKE_INSTALL_LIBDIR})
+ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/resources/libhdfs.so
+         DESTINATION ${LIBHDFS3_DESTINATION})
+ 
+-add_custom_command(
+-  TARGET gluten
+-  POST_BUILD
+-  COMMAND ld $<TARGET_FILE:gluten> || true
+-  COMMENT "Checking ld result of libgluten.so")
+-add_custom_command(
+-  TARGET gluten
+-  POST_BUILD
+-  COMMAND ldd $<TARGET_FILE:gluten> || true
+-  COMMENT "Checking ldd result of libgluten.so")
++if(CMAKE_SYSTEM_NAME MATCHES "Linux")
++  add_custom_command(
++    TARGET gluten
++    POST_BUILD
++    COMMAND ld $<TARGET_FILE:gluten> || true
++    COMMENT "Checking ld result of libgluten.so")
++  add_custom_command(
++    TARGET gluten
++    POST_BUILD
++    COMMAND ldd $<TARGET_FILE:gluten> || true
++    COMMENT "Checking ldd result of libgluten.so")
++endif()
+diff --git a/cpp/core/compute/Runtime.h b/cpp/core/compute/Runtime.h
+index 07120684d..5e720a999 100644
+--- a/cpp/core/compute/Runtime.h
++++ b/cpp/core/compute/Runtime.h
+@@ -36,6 +36,7 @@
+ 
+ namespace gluten {
+ 
++struct JniInputIteratorContext;
+ class ResultIterator;
+ 
+ struct SparkTaskInfo {
+@@ -190,6 +191,8 @@ class Runtime : public std::enable_shared_from_this<Runtime> {
+     return dumper_.get();
+   }
+ 
++  virtual std::unique_ptr<ColumnarBatchIterator> createJniInputIterator(const JniInputIteratorContext& context);
++
+   ObjectHandle saveObject(std::shared_ptr<void> obj) {
+     return objStore_->save(obj);
+   }
+diff --git a/cpp/core/jni/JniCommon.cc b/cpp/core/jni/JniCommon.cc
+index 76a07aa2d..b8ea218d0 100644
+--- a/cpp/core/jni/JniCommon.cc
++++ b/cpp/core/jni/JniCommon.cc
+@@ -18,6 +18,11 @@
+ #include "JniCommon.h"
+ #include <folly/system/ThreadName.h>
+ 
++gluten::JniCommonState* gluten::getJniCommonState() {
++  static JniCommonState jniCommonState;
++  return &jniCommonState;
++}
++
+ void gluten::JniCommonState::ensureInitialized(JNIEnv* env) {
+   std::lock_guard<std::mutex> lockGuard(mtx_);
+   if (initialized_) {
+@@ -67,6 +72,12 @@ gluten::Runtime* gluten::getRuntime(JNIEnv* env, jobject runtimeAware) {
+   return ctx;
+ }
+ 
++std::unique_ptr<gluten::ColumnarBatchIterator> gluten::Runtime::createJniInputIterator(
++    const JniInputIteratorContext& context) {
++  return std::make_unique<JniColumnarBatchIterator>(
++      context.env, context.jColumnarBatchIterator, this, context.iteratorIndex);
++}
++
+ std::unique_ptr<gluten::JniColumnarBatchIterator>
+ gluten::makeJniColumnarBatchIterator(JNIEnv* env, jobject jColumnarBatchItr, gluten::Runtime* runtime) {
+   return std::make_unique<JniColumnarBatchIterator>(env, jColumnarBatchItr, runtime);
+diff --git a/cpp/core/jni/JniCommon.h b/cpp/core/jni/JniCommon.h
+index bf5a6a746..3b4c50aba 100644
+--- a/cpp/core/jni/JniCommon.h
++++ b/cpp/core/jni/JniCommon.h
+@@ -151,6 +151,10 @@ static T* jniCastOrThrow(jlong handle) {
+ }
+ namespace gluten {
+ 
++class StreamReader;
++
++std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuffleStreamReader);
++
+ class JniCommonState {
+  public:
+   virtual ~JniCommonState() = default;
+@@ -179,10 +183,7 @@ class JniCommonState {
+   std::mutex mtx_;
+ };
+ 
+-inline JniCommonState* getJniCommonState() {
+-  static JniCommonState jniCommonState;
+-  return &jniCommonState;
+-}
++JniCommonState* getJniCommonState();
+ 
+ Runtime* getRuntime(JNIEnv* env, jobject runtimeAware);
+ 
+@@ -286,6 +287,12 @@ DEFINE_SAFE_GET_PRIMITIVE_ARRAY_FUNCTIONS(kLong, jlongArray, Long)
+ DEFINE_SAFE_GET_PRIMITIVE_ARRAY_FUNCTIONS(kFloat, jfloatArray, Float)
+ DEFINE_SAFE_GET_PRIMITIVE_ARRAY_FUNCTIONS(kDouble, jdoubleArray, Double)
+ 
++struct JniInputIteratorContext {
++  JNIEnv* env;
++  jobject jColumnarBatchIterator;
++  int32_t iteratorIndex;
++};
++
+ class JniColumnarBatchIterator : public ColumnarBatchIterator {
+  public:
+   explicit JniColumnarBatchIterator(
+diff --git a/cpp/core/jni/JniError.cc b/cpp/core/jni/JniError.cc
+index d2619026b..97047caf1 100644
+--- a/cpp/core/jni/JniError.cc
++++ b/cpp/core/jni/JniError.cc
+@@ -16,6 +16,11 @@
+  */
+ #include "JniError.h"
+ 
++gluten::JniErrorState* gluten::getJniErrorState() {
++  static JniErrorState jniErrorState;
++  return &jniErrorState;
++}
++
+ void gluten::JniErrorState::ensureInitialized(JNIEnv* env) {
+   std::lock_guard<std::mutex> lockGuard(mtx_);
+   if (initialized_) {
+diff --git a/cpp/core/jni/JniError.h b/cpp/core/jni/JniError.h
+index 1c57dc3b3..cc91a75ff 100644
+--- a/cpp/core/jni/JniError.h
++++ b/cpp/core/jni/JniError.h
+@@ -70,9 +70,6 @@ class JniErrorState {
+   std::mutex mtx_;
+ };
+ 
+-inline JniErrorState* getJniErrorState() {
+-  static JniErrorState jniErrorState;
+-  return &jniErrorState;
+-}
++JniErrorState* getJniErrorState();
+ 
+ } // namespace gluten
+diff --git a/cpp/core/jni/JniWrapper.cc b/cpp/core/jni/JniWrapper.cc
+index f69c57fb3..afdc04f5c 100644
+--- a/cpp/core/jni/JniWrapper.cc
++++ b/cpp/core/jni/JniWrapper.cc
+@@ -274,11 +274,19 @@ class ShuffleStreamReader : public StreamReader {
+ 
+ } // namespace
+ 
++namespace gluten {
++
++std::shared_ptr<StreamReader> makeShuffleStreamReader(JNIEnv* env, jobject jShuffleStreamReader) {
++  return std::make_shared<::ShuffleStreamReader>(env, jShuffleStreamReader);
++}
++
++} // namespace gluten
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
++JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+   JNIEnv* env;
+   if (vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion) != JNI_OK) {
+     return JNI_ERR;
+@@ -334,13 +342,14 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+   return jniVersion;
+ }
+ 
+-void JNI_OnUnload(JavaVM* vm, void* reserved) {
++JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
+   JNIEnv* env;
+   vm->GetEnv(reinterpret_cast<void**>(&env), jniVersion);
+   env->DeleteGlobalRef(jniByteInputStreamClass);
+   env->DeleteGlobalRef(splitResultClass);
+   env->DeleteGlobalRef(nativeColumnarToRowInfoClass);
+   env->DeleteGlobalRef(byteArrayClass);
++  env->DeleteGlobalRef(metricsBuilderClass);
+   env->DeleteGlobalRef(jniUnsafeByteBufferClass);
+   env->DeleteGlobalRef(shuffleReaderMetricsClass);
+ 
+@@ -569,7 +578,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
+     inputIters.reserve(itersLen);
+     for (int idx = 0; idx < itersLen; idx++) {
+       jobject iter = env->GetObjectArrayElement(batchItrArray, idx);
+-      auto arrayIter = std::make_unique<JniColumnarBatchIterator>(env, iter, ctx, idx);
++      auto arrayIter = ctx->createJniInputIterator({env, iter, idx});
+       auto resultIter = std::make_shared<ResultIterator>(std::move(arrayIter));
+       inputIters.push_back(std::move(resultIter));
+     }
+diff --git a/cpp/core/symbols.map b/cpp/core/symbols.map
+index 78300ed6d..9ae63ca4c 100644
+--- a/cpp/core/symbols.map
++++ b/cpp/core/symbols.map
+@@ -9,6 +9,7 @@
+     extern "C++" {
+       # Hide symbols of glog, gflags (protobuf is made global at above).
+       *google::*;
++      *gflags::*;
+       fL*::FLAGS_*;
+       gflags_mutex_namespace::*;
+       glog_internal_namespace_::*;
+diff --git a/cpp/core/tests/CMakeLists.txt b/cpp/core/tests/CMakeLists.txt
+index 33026948c..2187d9387 100644
+--- a/cpp/core/tests/CMakeLists.txt
++++ b/cpp/core/tests/CMakeLists.txt
+@@ -17,3 +17,4 @@ add_test_case(round_robin_partitioner_test SOURCES RoundRobinPartitionerTest.cc)
+ add_test_case(object_store_test SOURCES ObjectStoreTest.cc)
+ add_test_case(memory_allocator_test SOURCES MemoryAllocatorTest.cc)
+ add_test_case(ffor_codec_test SOURCES FForCodecTest.cc)
++add_test_case(jni_input_iterator_test SOURCES JniInputIteratorTest.cc)
+diff --git a/cpp/core/tests/JniInputIteratorTest.cc b/cpp/core/tests/JniInputIteratorTest.cc
+new file mode 100644
+index 000000000..7f4e13db3
+--- /dev/null
++++ b/cpp/core/tests/JniInputIteratorTest.cc
+@@ -0,0 +1,45 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one or more
++ * contributor license agreements.  See the NOTICE file distributed with
++ * this work for additional information regarding copyright ownership.
++ * The ASF licenses this file to You under the Apache License, Version 2.0
++ * (the "License"); you may not use this file except in compliance with
++ * the License.  You may obtain a copy of the License at
++ *
++ *    http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "jni/JniCommon.h"
++
++#include <gtest/gtest.h>
++
++using namespace gluten;
++
++namespace {
++
++class TestRuntime final : public Runtime {
++ public:
++  TestRuntime() : Runtime("jni-input-iterator-test", nullptr, nullptr, {}) {}
++
++  std::unique_ptr<ColumnarBatchIterator> createJniInputIterator(const JniInputIteratorContext& context) override {
++    iteratorIndex = context.iteratorIndex;
++    return nullptr;
++  }
++
++  int32_t iteratorIndex{-1};
++};
++
++TEST(JniInputIterator, DispatchesThroughRuntime) {
++  TestRuntime runtime;
++  Runtime* base = &runtime;
++  base->createJniInputIterator({nullptr, nullptr, 7});
++  EXPECT_EQ(runtime.iteratorIndex, 7);
++}
++
++} // namespace
