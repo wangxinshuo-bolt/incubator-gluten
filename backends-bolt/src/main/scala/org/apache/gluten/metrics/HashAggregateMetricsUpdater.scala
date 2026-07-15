@@ -87,7 +87,7 @@ class HashAggregateMetricsUpdaterImpl(val metrics: Map[String, SQLMetric])
       idx += 1
     }
 
-    loadLazyVectorTime += aggregationMetrics.asScala.map(_.loadLazyVectorTime).sum
+    loadLazyVectorTime += aggregationMetrics.asScala.last.loadLazyVectorTime
 
     if (TaskResources.inSparkTask()) {
       SparkMetricsUtil.incMemoryBytesSpilled(
