@@ -22,8 +22,6 @@
 #include <execinfo.h>
 #include <jni.h>
 
-#include <functional>
-
 #include "compute/ProtobufUtils.h"
 #include "compute/Runtime.h"
 #include "memory/AllocationListener.h"

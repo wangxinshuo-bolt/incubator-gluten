@@ -380,7 +380,7 @@ std::shared_ptr<bolt::core::QueryCtx> WholeStageResultIterator::createNewBoltQue
   memory::sparksql::BoltMemoryPoolPtr boltPool;
   if (gluten::BoltGlutenMemoryManager::enabled()) {
     auto holder = gluten::BoltGlutenMemoryManager::getMemoryManagerHolder(
-        memoryManager_->name(), taskInfo_.taskId, reinterpret_cast<int64_t>(memoryManager_));
+        taskInfo_.taskId, reinterpret_cast<int64_t>(memoryManager_));
     auto mm = holder->getManager();
     boltPool = mm->getAggregateMemoryPool();
   } else {
@@ -474,7 +474,7 @@ int64_t WholeStageResultIterator::spillFixedSize(int64_t size) {
   memory::sparksql::BoltMemoryManagerPtr manager;
   if (gluten::BoltGlutenMemoryManager::enabled()) {
     auto holder = gluten::BoltGlutenMemoryManager::getMemoryManagerHolder(
-        memoryManager_->name(), taskInfo_.taskId, reinterpret_cast<int64_t>(memoryManager_));
+        taskInfo_.taskId, reinterpret_cast<int64_t>(memoryManager_));
     manager = holder->getManager();
     pool = manager->getAggregateMemoryPool();
   } else {

@@ -169,8 +169,7 @@ inline static const std::string kInternalBackendKind{"internal"};
 
 class InternalMemoryManager : public MemoryManager {
  public:
-  InternalMemoryManager(const std::string& kind, MemoryManagerOptions options)
-      : MemoryManager(kind, std::move(options)) {}
+  InternalMemoryManager(const std::string& kind) : MemoryManager(kind) {}
 
   arrow::MemoryPool* defaultArrowMemoryPool() override {
     throw GlutenException("Not implemented");
@@ -201,11 +200,8 @@ class InternalRuntime : public Runtime {
       : Runtime(kind, memoryManager, threadManager, confMap) {}
 };
 
-MemoryManager* internalMemoryManagerFactory(
-    const std::string& kind,
-    std::unique_ptr<AllocationListener> listener,
-    const MemoryManagerOptions& options) {
-  return new InternalMemoryManager(kind, options);
+MemoryManager* internalMemoryManagerFactory(const std::string& kind, std::unique_ptr<AllocationListener> listener) {
+  return new InternalMemoryManager(kind);
 }
 
 void internalMemoryManagerReleaser(MemoryManager* memoryManager) {
@@ -419,7 +415,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrap
   if (backtrace) {
     listener = std::make_unique<BacktraceAllocationListener>(std::move(listener));
   }
-  MemoryManager* mm = MemoryManager::create(backendType, std::move(listener), MemoryManagerOptions{""});
+  MemoryManager* mm = MemoryManager::create(backendType, std::move(listener));
   return reinterpret_cast<jlong>(mm);
   JNI_METHOD_END(-1L)
 }
