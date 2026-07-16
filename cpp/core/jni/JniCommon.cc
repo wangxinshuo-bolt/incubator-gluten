@@ -16,8 +16,12 @@
  */
 
 #include "JniCommon.h"
+#include <folly/system/ThreadName.h>
 
-#include <unordered_map>
+gluten::JniCommonState* gluten::getJniCommonState() {
+  static JniCommonState jniCommonState;
+  return &jniCommonState;
+}
 
 void gluten::JniCommonState::ensureInitialized(JNIEnv* env) {
   std::lock_guard<std::mutex> lockGuard(mtx_);
@@ -66,6 +70,12 @@ gluten::Runtime* gluten::getRuntime(JNIEnv* env, jobject runtimeAware) {
   auto ctx = reinterpret_cast<Runtime*>(ctxHandle);
   GLUTEN_CHECK(ctx != nullptr, "FATAL: resource instance should not be null.");
   return ctx;
+}
+
+std::unique_ptr<gluten::ColumnarBatchIterator> gluten::Runtime::createJniInputIterator(
+    const JniInputIteratorContext& context) {
+  return std::make_unique<JniColumnarBatchIterator>(
+      context.env, context.jColumnarBatchIterator, this, context.iteratorIndex);
 }
 
 std::unique_ptr<gluten::JniColumnarBatchIterator>

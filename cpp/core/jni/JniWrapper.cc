@@ -25,15 +25,11 @@
 #include "config/GlutenConfig.h"
 #include "jni/JniCommon.h"
 #include "jni/JniError.h"
-#include "jni/JniWrapper.h"
-
-#include "memory/ColumnarBatch.h"
 
 #include <arrow/c/bridge.h>
 #include <google/protobuf/stubs/common.h>
 #include <optional>
 #include <string>
-#include <utility>
 #include "memory/AllocationListener.h"
 #include "memory/SplitAwareColumnarBatchIterator.h"
 #include "operators/serializer/ColumnarBatchSerializer.h"
@@ -171,8 +167,7 @@ inline static const std::string kInternalBackendKind{"internal"};
 
 class InternalMemoryManager : public MemoryManager {
  public:
-  InternalMemoryManager(const std::string& kind, MemoryManagerOptions options)
-      : MemoryManager(kind, std::move(options)) {}
+  InternalMemoryManager(const std::string& kind) : MemoryManager(kind) {}
 
   arrow::MemoryPool* defaultArrowMemoryPool() override {
     throw GlutenException("Not implemented");
@@ -203,11 +198,8 @@ class InternalRuntime : public Runtime {
       : Runtime(kind, memoryManager, threadManager, confMap) {}
 };
 
-MemoryManager* internalMemoryManagerFactory(
-    const std::string& kind,
-    std::unique_ptr<AllocationListener> listener,
-    const MemoryManagerOptions& options) {
-  return new InternalMemoryManager(kind, options);
+MemoryManager* internalMemoryManagerFactory(const std::string& kind, std::unique_ptr<AllocationListener> listener) {
+  return new InternalMemoryManager(kind);
 }
 
 void internalMemoryManagerReleaser(MemoryManager* memoryManager) {
@@ -357,6 +349,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(splitResultClass);
   env->DeleteGlobalRef(nativeColumnarToRowInfoClass);
   env->DeleteGlobalRef(byteArrayClass);
+  env->DeleteGlobalRef(metricsBuilderClass);
   env->DeleteGlobalRef(jniUnsafeByteBufferClass);
   env->DeleteGlobalRef(shuffleReaderMetricsClass);
 
@@ -381,7 +374,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_runtime_RuntimeJniWrapper_createR
   auto backendType = jStringToCString(env, jBackendType);
 
   auto runtime = Runtime::create(backendType, memoryManager, threadManager, sparkConf);
-
   return reinterpret_cast<jlong>(runtime);
   JNI_METHOD_END(kInvalidObjectHandle)
 }
@@ -420,7 +412,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_memory_NativeMemoryManagerJniWrap
   if (backtrace) {
     listener = std::make_unique<BacktraceAllocationListener>(std::move(listener));
   }
-  MemoryManager* mm = MemoryManager::create(backendType, std::move(listener), MemoryManagerOptions{""});
+  MemoryManager* mm = MemoryManager::create(backendType, std::move(listener));
   return reinterpret_cast<jlong>(mm);
   JNI_METHOD_END(-1L)
 }
@@ -586,7 +578,7 @@ Java_org_apache_gluten_vectorized_PlanEvaluatorJniWrapper_nativeCreateKernelWith
     inputIters.reserve(itersLen);
     for (int idx = 0; idx < itersLen; idx++) {
       jobject iter = env->GetObjectArrayElement(batchItrArray, idx);
-      auto arrayIter = createInputIterator(env, iter, ctx, idx);
+      auto arrayIter = ctx->createJniInputIterator({env, iter, idx});
       auto resultIter = std::make_shared<ResultIterator>(std::move(arrayIter));
       inputIters.push_back(std::move(resultIter));
     }
@@ -1216,7 +1208,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_gluten_vectorized_ShuffleWriterJniWrappe
     throw GlutenException(errorMessage);
   }
 
-  // The column batch may be a backend column batch or ArrowCStructColumnarBatch(FallbackRangeShuffleWriter).
+  // The column batch maybe VeloxColumnBatch or ArrowCStructColumnarBatch(FallbackRangeShuffleWriter)
   auto batch = ObjectStore::retrieve<ColumnarBatch>(batchHandle);
   arrowAssertOkOrThrow(shuffleWriter->write(batch, memLimit), "Native write: shuffle writer failed");
   return shuffleWriter->bytesWritten();
