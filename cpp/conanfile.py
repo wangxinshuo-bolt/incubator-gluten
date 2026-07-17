@@ -75,6 +75,7 @@ class GlutenConan(ConanFile):
             self.requires("benchmark/[>=1.6.0]")
         self.requires("glog/0.7.1")
         self.requires("libbacktrace/cci.20210118")
+        self.requires("gflags/2.2.2", force=True)
 
 
     def build_requirements(self):
@@ -103,6 +104,7 @@ class GlutenConan(ConanFile):
             or self.options.build_benchmarks:
             self.options[bolt].enable_test = True
             self.options[bolt].enable_testutil = True
+        self.options[f"gflags{postfix}"].namespace = "google;gflags"
 
 
     def generate(self):
@@ -186,4 +188,4 @@ class GlutenConan(ConanFile):
         self.cpp_info.components["bolt_backend"].requires.append("libgluten")
         self.cpp_info.components["bolt_backend"].requires.append("bolt::bolt")
 
-        self.cpp_info.requires.extend(["glog::glog", "bolt::bolt"])
+        self.cpp_info.requires.extend(["glog::glog", "gflags::gflags", "bolt::bolt"])
